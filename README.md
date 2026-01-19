@@ -1,6 +1,6 @@
 # MMO World Editor (Bevy 0.18 + egui)
 
-A multi-tool repository focused first on a World of Warcraft–style MMO world editor:
+A multi-tool repository focused first on a World of Warcraft-style MMO world editor:
 
 - Large tiled open worlds (tile streaming)
 - Heightfield terrain sculpting
@@ -37,6 +37,8 @@ cargo run -p editor
 ## Documentation
 
 - `docs/checklists/`: Extensive checklists toward a finished product
+- `docs/PRODUCT.md`: Product scope and definition of done
+- `docs/QUALITY_BAR.md`: Quality policies and acceptance criteria
 - `docs/WORLD_SPEC.md`: Concrete WoW-style world sizing defaults
 - `docs/WORLD_FORMAT.md`: On-disk formats (source + artifacts)
 - `docs/ROADMAP.md`: High-level milestone overview
