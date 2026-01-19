@@ -1,22 +1,20 @@
-# CHECKLIST 12 — Performance and scalability gates
+# CHECKLIST 12 - Performance + profiling + scale gates
 
-## Purpose
-Keep the editor usable at MMO scale.
-
-## Milestone 12.1 — Instrumentation
+## Milestone 12.1 - Instrumentation
 - [ ] Frame time overlay
-- [ ] Streaming timers and budgets
-- [ ] Memory per layer
+- [ ] Streaming phase timers
+- [ ] Memory reporting per layer
 
-## Milestone 12.2 — Numeric gates
-- [ ] Define thresholds for stalls and rebuilds
-- [ ] Regression checks (smoke/perf)
+## Milestone 12.2 - Regression gates
+- [ ] Smoke perf test world
+- [ ] Automated fly-through test
+- [ ] Detect memory leaks / unbounded queues
 
-## Milestone 12.3 — Stress scenarios
+## Milestone 12.3 - Stress scenarios
 - [ ] Massive sculpt strokes
 - [ ] Fast traversal
-- [ ] Dense props
-- [ ] Liquids + materials combined
+- [ ] Dense props region
+- [ ] Liquids + materials + props combined
 
 ## Acceptance
-- Meets budgets defined in checklist 00.
+- Meets numeric budgets from CHECKLIST 00.

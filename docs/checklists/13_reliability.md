@@ -1,21 +1,18 @@
-# CHECKLIST 13 — Reliability: autosave, crash recovery, corruption handling
+# CHECKLIST 13 - Reliability (no data loss, corruption handling, recovery)
 
-## Purpose
-Professional tool behavior with no-data-loss expectations.
+## Milestone 13.1 - Atomic saves
+- [ ] Temp + rename strategy for all writes
+- [ ] Prevent partial overwrite
 
-## Milestone 13.1 — Save safety
-- [ ] Atomic tile saves
+## Milestone 13.2 - Autosave + recovery
 - [ ] Autosave snapshots
+- [ ] Recovery prompt on crash
 - [ ] Backup rotation
 
-## Milestone 13.2 — Corruption handling
-- [ ] Detect corrupt tiles
-- [ ] Quarantine + continue opening
-- [ ] Diagnostics bundle
-
-## Milestone 13.3 — Recovery UX
-- [ ] Recovery prompt
-- [ ] Restore autosave
+## Milestone 13.3 - Corruption handling
+- [ ] Validator detects corrupt tiles
+- [ ] Quarantine corrupt tiles
+- [ ] Project opens with partial data
 
 ## Acceptance
-- Simulated crash during save does not corrupt the full project.
+- Simulated crash during save does not corrupt the whole project.

@@ -1,26 +1,22 @@
-# Engine baseline (Bevy 0.18 + egui)
+# Engine Baseline (Bevy 0.18)
 
-## Target versions
-
-- **Bevy:** 0.18.x
-- **UI:** egui via `bevy_egui`
+## Versions
+- Bevy: 0.18.x
+- UI: egui via bevy_egui (compatible with Bevy 0.18)
 
 ## Feature posture
+Default path: Bevy high-level **3D feature profile** with standard renderer.
 
-This repo uses Bevy's high-level feature profile for 3D (`features = ["3d"]`).
+## Viewport seam
+The codebase keeps a boundary between:
+- editor tool logic (selection, commands, undo) and
+- viewport presentation (camera, picking, rendering)
 
-### Viewport seam (forward-looking)
+This is to allow future upgrades:
+- improved terrain renderer
+- custom wgpu pipeline
+- alternative viewport crate
 
-The viewport is treated as an architectural seam:
-
-- Default: Bevy renders the viewport.
-- Future option: swap to a custom renderer module while keeping the tool framework intact.
-
-To preserve this seam:
-
-- `crates/viewport` must remain UI-agnostic.
-- Editor tools operate on stable world data + IDs, not renderer-owned handles.
-
-## Camera
-
-We provide an editor camera in `crates/viewport`. Use built-in Bevy camera controllers only for debugging/bootstrapping; the editor will ultimately maintain its own RTS/orbit camera behavior.
+## Camera controllers
+Bevy includes basic camera controllers; they may be used for bootstrap/testing.
+For the editor, implement an RTS/orbit camera tuned for large world navigation.

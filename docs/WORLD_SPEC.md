@@ -1,40 +1,32 @@
-# World spec (WoW-style defaults)
+# World Spec (WoW-Lite defaults)
 
-These values are selected to match a World of Warcraft–style world authoring model: heightfield terrain, splat-painted materials, liquids as a layer, and tile streaming.
+These defaults are chosen to match a WoW-era workflow while remaining scalable.
 
 ## Partitioning
-
-- **Tile size:** 512m x 512m
-- **Chunks per tile:** 16 x 16
-- **Chunk size:** 32m x 32m
+- Tile size: **512m x 512m**
+- Chunks per tile: **16 x 16**
+- Chunk size: **32m x 32m**
 
 ## Terrain
+- Heightfield resolution per tile: **513 x 513** samples
+  - 512 meters / 512 intervals = ~1m spacing
+  - The +1 row/col enables seam-consistent sampling
+- Mesh generation: per chunk derived from the tile heightfield
 
-- **Heightfield samples per tile:** 513 x 513
-  - 512 intervals across the tile -> ~1m sample spacing
-  - +1 sample avoids seam duplication issues
-
-## Terrain materials
-
-- **Weightmap resolution:** 256 x 256 per tile (~2m texel)
-- **Initial material layers:** 4 (expandable)
+## Materials
+- Weightmap resolution per tile: **256 x 256**
+- Start with 4 layers per tile; allow expansion later
 
 ## Liquids
+- Coverage mask: **256 x 256** per tile
+- Water height: v1 stores a scalar per contiguous body + mask
+  - later: per-cell heights and flow maps
 
-- **Coverage mask resolution:** 256 x 256 per tile
-- **Height model (v1):** per contiguous liquid body (one height scalar per body)
-- **Types:** enum/material id (water/lava/slime/etc.)
+## Props
+- Instances stored per tile
+- 3 LOD tiers (simple), distances configurable
 
-## Props/doodads
-
-- Instances stored per tile with stable IDs
-- Basic LOD tiers: 3
-
-## Streaming (editor)
-
+## Streaming
 - Primary unit: tile
 - Secondary unit: chunk (rebuild/LOD)
-
-## Notes
-
-These defaults are not immutable, but they are used as the reference assumptions throughout `docs/checklists/`.
+- Budgeted pipeline: IO -> decode -> build -> GPU upload

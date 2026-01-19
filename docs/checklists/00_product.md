@@ -1,34 +1,29 @@
-# CHECKLIST 00 — Product definition (WoW-style MMO world editor)
+# CHECKLIST 00 - Product definition and acceptance (WoW-Lite)
 
 ## Purpose
-Lock scope and the definition of a finished product.
+Lock the product boundaries and quality targets so engineering choices remain aligned to a WoW-style MMO map workflow.
 
-## Milestone 00.1 — Target workflows (v1)
-- [ ] Create/open project
-- [ ] Navigate a large world (RTS camera)
-- [ ] Sculpt terrain (raise/lower/smooth/flatten)
-- [ ] Paint surface materials (weightmaps)
-- [ ] Author liquids (lakes/rivers/oceans)
-- [ ] Place props/doodads
-- [ ] Stream tiles while editing
-- [ ] Export runtime artifacts
-- [ ] Artifact-only preview mode
+## Milestone 00.1 - Product scope
+- [ ] Write `docs/PRODUCT.md` describing:
+  - [ ] must-have workflows (terrain, liquids, props, streaming, export, preview)
+  - [ ] explicit non-goals for v1
+  - [ ] "Definition of Done" for v1
 
-## Milestone 00.2 — Non-goals (v1)
-- [ ] Collaborative multi-user editing
-- [ ] Full scripting/quest IDE
-- [ ] Modeling suite
+## Milestone 00.2 - Numeric budgets
+- [ ] Set and document numeric targets:
+  - [ ] world dimensions (tiles)
+  - [ ] target loaded tiles (min/typical/max)
+  - [ ] frame budget targets (CPU/GPU)
+  - [ ] memory target
+  - [ ] streaming phase budgets (IO/decode/build/upload)
 
-## Milestone 00.3 — Quality bar
-- [ ] Atomic tile saves
-- [ ] Autosave + crash recovery
-- [ ] Corruption quarantine
-- [ ] Deterministic export
-
-## Milestone 00.4 — Numeric budgets
-- [ ] Target FPS and acceptable spikes
-- [ ] Memory target
-- [ ] Streaming budgets (IO/CPU/GPU)
+## Milestone 00.3 - Quality policies
+- [ ] Write `docs/QUALITY_BAR.md` covering:
+  - [ ] atomic saves
+  - [ ] autosave + recovery
+  - [ ] corruption quarantine
+  - [ ] undo/redo requirements
+  - [ ] compatibility and migrations
 
 ## Acceptance
-- [ ] `docs/PRODUCT.md` and `docs/QUALITY_BAR.md` exist and match this checklist.
+- `docs/PRODUCT.md` and `docs/QUALITY_BAR.md` exist and are referenced from README.

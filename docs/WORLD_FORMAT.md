@@ -1,50 +1,42 @@
-# World format
+# World Format (Source)
 
-This document describes the on-disk layout for **source** (editable) data and **artifacts** (runtime-consumable) data.
+This is the authoring/source format. Runtime artifacts are produced by the exporter.
 
-## Source data layout (editable)
+## Project layout
 
-At project root:
+```
+<project_root>/
+  project.toml
+  tiles/
+    <region>/
+      <x>_<y>/
+        tile.meta.json
+        terrain.height.bin
+        terrain.weightmap.bin
+        liquids.mask.bin
+        liquids.meta.json
+        props.instances.bin
+        splines.bin
+```
 
-- `project.toml` (or `project.json`) — versioned project manifest
-- `tiles/` — tile data grouped by region
+## Versioning
+- `project.toml` contains `format_version`
+- Each per-tile file is assumed to match the project format version
 
-Suggested tile layout:
+## Atomic writes
+- Write to `*.tmp` then rename
+- Never partially overwrite an existing file
 
-- `tiles/<region>/<x>_<y>/tile.meta`
-- `tiles/<region>/<x>_<y>/terrain.height`
-- `tiles/<region>/<x>_<y>/terrain.weightmap`
-- `tiles/<region>/<x>_<y>/liquids.mask`
-- `tiles/<region>/<x>_<y>/liquids.meta`
-- `tiles/<region>/<x>_<y>/props.instances`
-- `tiles/<region>/<x>_<y>/splines.bin`
-- `tiles/<region>/<x>_<y>/metadata.json`
+## Validation
+Validator checks:
+- missing files
+- version mismatch
+- corrupt headers
+- out-of-range values
 
-### Atomic saves
-
-All writes must be atomic at the tile-file level:
-
-1. write to temp file in same directory
-2. fsync as appropriate
-3. rename to target
-
-## Artifact layout (runtime)
-
-At project root:
-
-- `artifacts/<build_id>/` — versioned export output
-
-Suggested artifacts per tile:
-
-- `terrain/` — chunk meshes and/or heightfield+LOD recipes
-- `liquids/` — chunk surfaces, masks, metadata
-- `props/` — instance lists and streaming groups
-- `materials/` — baked splat/weight textures
-- `splines/` — baked road/river meshes or spline data
-- `nav/` — placeholder for future navigation exports
-
-## Versioning and migrations
-
-- Every file format includes a version header.
-- Project manifest includes a schema version.
-- Migrations are explicit transforms from old -> new.
+## Notes
+- Binary formats should start with a small header:
+  - magic
+  - version
+  - dimensions
+  - checksum (optional)

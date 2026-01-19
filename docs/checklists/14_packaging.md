@@ -1,19 +1,17 @@
-# CHECKLIST 14 — Packaging and distribution
+# CHECKLIST 14 - Packaging and distribution
 
-## Purpose
-Deliver the editor as a usable product.
-
-## Milestone 14.1 — Release builds
-- [ ] Release profiles configured
+## Milestone 14.1 - Release builds
 - [ ] Version stamping
+- [ ] Release profile tuning
 
-## Milestone 14.2 — Packaging
-- [ ] Windows artifact packaging
-- [ ] macOS/Linux optional
+## Milestone 14.2 - Packaging
+- [ ] Windows zip/installer
+- [ ] (Optional) macOS
+- [ ] (Optional) Linux
 
-## Milestone 14.3 — Upgrade UX
+## Milestone 14.3 - Compatibility UX
 - [ ] Migration prompts
 - [ ] Changelog
 
 ## Acceptance
-- A non-developer can install and run the editor.
+- Non-developer can install and open projects.

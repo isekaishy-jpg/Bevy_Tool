@@ -1,18 +1,28 @@
-# Quality bar
+# Quality Bar
+
+## Checklist baseline (v1)
+- Atomic tile saves
+- Autosave + crash recovery
+- Corruption quarantine
+- Deterministic export
 
 ## Data safety
+- All on-disk writes are atomic (temp + rename).
+- Autosave is enabled by default (configurable).
+- On crash, user is prompted to recover.
 
-- Tile writes are atomic.
-- Autosave produces recoverable snapshots.
-- Corrupted tiles are quarantined; project opens with partial content.
+## Undo/redo
+- Any edit that changes world data must be undoable.
+- Undo records deltas (patches), not full-tile copies.
 
-## Determinism
-
-- Stable IDs in files.
-- Canonical ordering in serialized output.
-- Export output is deterministic given identical inputs.
+## Corruption handling
+- A single corrupt tile must not prevent opening the project.
+- Corrupt tiles are quarantined with an actionable error report.
 
 ## Performance
+- Editor remains interactive under streaming churn.
+- Rebuild work is budgeted; no unbounded frame stalls.
 
-- No long UI stalls during common editing (budgeted rebuilds and streaming).
-- Streaming and rebuild queues are observable in-editor.
+## Compatibility
+- Save format is versioned.
+- Migrations exist and are tested.
