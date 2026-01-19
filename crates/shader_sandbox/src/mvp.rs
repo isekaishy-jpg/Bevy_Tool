@@ -6,15 +6,16 @@ use bevy::prelude::*;
 
 use crate::material::{WaterMaterial, WaterMaterialParams};
 
-const WATER_SHADER_PATH: &str = "crates/shader_sandbox/src";
-const WATER_SHADER_FILE: &str = "shaders/water_material.wgsl";
-
 /// Plugin that registers the MVP water material and its embedded shader.
 pub struct WaterMvpPlugin;
 
 impl Plugin for WaterMvpPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, WATER_SHADER_PATH, WATER_SHADER_FILE);
+        embedded_asset!(
+            app,
+            "crates/shader_sandbox/src",
+            "shaders/water_material.wgsl"
+        );
         app.add_plugins(MaterialPlugin::<WaterMaterial>::default());
     }
 }
@@ -57,7 +58,10 @@ impl WaterMaterialTextures {
 }
 
 /// Builds a `WaterMaterial` from params + texture handles.
-pub fn build_water_material(params: WaterMaterialParams, textures: WaterMaterialTextures) -> WaterMaterial {
+pub fn build_water_material(
+    params: WaterMaterialParams,
+    textures: WaterMaterialTextures,
+) -> WaterMaterial {
     WaterMaterial {
         params,
         normal1_texture: Some(textures.normal1),

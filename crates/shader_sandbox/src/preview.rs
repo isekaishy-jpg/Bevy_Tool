@@ -1,6 +1,7 @@
 //! Preview helpers for the shader sandbox.
 
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::{visibility::RenderLayers, RenderTarget};
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::core_pipeline::Skybox;
 use bevy::ecs::message::MessageReader;
@@ -15,9 +16,15 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
-use bevy::camera::{visibility::RenderLayers, RenderTarget};
 
 use crate::material::{WaterMaterial, WaterMaterialParams};
+
+type MainCameraQuery<'w, 's> = Query<
+    'w,
+    's,
+    (&'static GlobalTransform, &'static Projection),
+    (With<MainCamera>, Without<ReflectionCamera>),
+>;
 
 pub struct WaterDebugPlugin;
 
@@ -288,7 +295,7 @@ fn camera_controls(
 
 fn sync_reflection_camera(
     state: Option<Res<WaterPreviewState>>,
-    main_camera: Query<(&GlobalTransform, &Projection), (With<MainCamera>, Without<ReflectionCamera>)>,
+    main_camera: MainCameraQuery,
     mut reflection_camera: Query<(&mut Transform, &mut Projection), With<ReflectionCamera>>,
     mut materials: ResMut<Assets<WaterMaterial>>,
 ) {

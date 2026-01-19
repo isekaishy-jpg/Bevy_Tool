@@ -31,4 +31,4 @@ Lock scope and the definition of a finished product.
 - [ ] Streaming budgets (IO/CPU/GPU)
 
 ## Acceptance
-- `docs/PRODUCT.md` and `docs/QUALITY_BAR.md` exist and match this checklist.
+- [ ] `docs/PRODUCT.md` and `docs/QUALITY_BAR.md` exist and match this checklist.
