@@ -1,10 +1,10 @@
 # CHECKLIST 03 - Editor shell (projects, docking, commands, recovery)
 
 ## Milestone 03.1 - Project UX
-- [ ] New/Open project
-- [ ] Recent projects
-- [ ] Project settings UI
-- [ ] Per-project vs global preferences
+- [x] New/Open project
+- [x] Recent projects
+- [x] Project settings UI
+- [x] Per-project vs global preferences
 
 ## Milestone 03.2 - Docking
 - [ ] Dock layout (viewport/outliner/inspector/console)

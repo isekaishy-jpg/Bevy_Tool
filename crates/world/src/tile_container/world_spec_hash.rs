@@ -27,6 +27,20 @@ pub fn hash_world_spec(spec: WorldSpec) -> u64 {
     fnv1a_64(data.as_bytes())
 }
 
+pub fn world_spec_from_manifest(manifest: &ProjectManifest) -> WorldSpec {
+    WorldSpec {
+        tile_size_meters: manifest.tile_size_meters,
+        chunks_per_tile: manifest.chunk_resolution,
+        heightfield_samples: manifest.heightfield_resolution,
+        weightmap_resolution: manifest.weightmap_resolution,
+        liquids_resolution: manifest.liquids_resolution,
+    }
+}
+
+pub fn hash_world_spec_from_manifest(manifest: &ProjectManifest) -> u64 {
+    hash_world_spec(world_spec_from_manifest(manifest))
+}
+
 pub fn hash_region(region: &str) -> u64 {
     fnv1a_64(region.as_bytes())
 }
@@ -39,3 +53,4 @@ fn fnv1a_64(data: &[u8]) -> u64 {
     }
     hash
 }
+use crate::schema::ProjectManifest;

@@ -20,11 +20,15 @@ pub enum LayerKind {
 
 /// Basic project/world manifest. Keep this small and versioned.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct ProjectManifest {
     pub format_version: u32,
     pub world_name: String,
     pub tile_size_meters: f32,
     pub chunk_resolution: u16,
+    pub heightfield_resolution: u16,
+    pub weightmap_resolution: u16,
+    pub liquids_resolution: u16,
 }
 
 impl Default for ProjectManifest {
@@ -34,6 +38,9 @@ impl Default for ProjectManifest {
             world_name: "NewWorld".to_string(),
             tile_size_meters: 512.0,
             chunk_resolution: 16,
+            heightfield_resolution: 513,
+            weightmap_resolution: 256,
+            liquids_resolution: 256,
         }
     }
 }

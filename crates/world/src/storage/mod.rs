@@ -98,6 +98,7 @@ pub fn save_tile_stub(
     tile_id: TileId,
     stub: &TileStub,
 ) -> anyhow::Result<()> {
+    let manifest = read_manifest(&layout.project_root)?;
     let region_hash = crate::tile_container::world_spec_hash::hash_region(region);
     let meta = crate::tile_container::MetaSection {
         format_version: stub.meta.format_version,
@@ -177,9 +178,8 @@ pub fn save_tile_stub(
         decoded: encode_prop(&prop)?,
     });
 
-    let spec_hash = crate::tile_container::world_spec_hash::hash_world_spec(
-        crate::tile_container::world_spec_hash::DEFAULT_WORLD_SPEC,
-    );
+    let spec_hash =
+        crate::tile_container::world_spec_hash::hash_world_spec_from_manifest(&manifest);
     let mut header =
         TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
     header.created_timestamp = meta.created_timestamp;

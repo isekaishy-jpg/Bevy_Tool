@@ -23,6 +23,15 @@ This is the authoring/source format. Runtime artifacts are produced by the expor
   - section versions inside each payload
   - world_spec_hash to detect spec mismatches
 
+## project.toml fields
+- format_version
+- world_name
+- tile_size_meters
+- chunk_resolution (chunks per tile)
+- heightfield_resolution
+- weightmap_resolution
+- liquids_resolution
+
 ## Deterministic ordering
 - Tiles are ordered by region, then tile coord (x, y)
 - Chunks are ordered by chunk coord (x, y)

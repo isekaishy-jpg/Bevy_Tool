@@ -1,7 +1,9 @@
 use crate::migrations::migrate_manifest;
 use crate::schema::WORLD_SCHEMA_VERSION;
 use crate::storage::{default_layout, quarantine_tile_file, read_manifest};
-use crate::tile_container::world_spec_hash::{hash_region, hash_world_spec, DEFAULT_WORLD_SPEC};
+use crate::tile_container::world_spec_hash::{
+    hash_region, hash_world_spec_from_manifest, world_spec_from_manifest, WorldSpec,
+};
 use crate::tile_container::{
     decode_hmap, decode_liqd, decode_meta, decode_prop, decode_wmap, TileContainerReader,
     TileSectionTag, CONTAINER_VERSION, DEFAULT_ALIGNMENT, DIR_ENTRY_SIZE, HEADER_SIZE,
@@ -80,13 +82,23 @@ fn validate_project_impl(project_root: &Path, quarantine: bool) -> Vec<Validatio
         )));
     }
 
-    scan_tiles(&layout, quarantine, &mut issues);
+    let expected_spec_hash = hash_world_spec_from_manifest(&manifest);
+    let expected_spec = world_spec_from_manifest(&manifest);
+    scan_tiles(
+        &layout,
+        expected_spec_hash,
+        expected_spec,
+        quarantine,
+        &mut issues,
+    );
 
     issues
 }
 
 fn scan_tiles(
     layout: &crate::storage::Layout,
+    expected_spec_hash: u64,
+    expected_spec: WorldSpec,
     quarantine: bool,
     issues: &mut Vec<ValidationIssue>,
 ) {
@@ -154,6 +166,8 @@ fn scan_tiles(
                 &region_name,
                 tile_id,
                 &tile_path,
+                expected_spec_hash,
+                expected_spec,
                 quarantine,
                 issues,
             );
@@ -181,6 +195,8 @@ fn validate_tile_container(
     region: &str,
     tile_id: TileId,
     tile_path: &Path,
+    expected_spec_hash: u64,
+    expected_spec: WorldSpec,
     quarantine: bool,
     issues: &mut Vec<ValidationIssue>,
 ) {
@@ -241,7 +257,6 @@ fn validate_tile_container(
             .push(ValidationIssue::new("region hash mismatch").with_path(tile_path.to_path_buf()));
     }
 
-    let expected_spec_hash = hash_world_spec(DEFAULT_WORLD_SPEC);
     if reader.header.world_spec_hash != expected_spec_hash {
         issues.push(
             ValidationIssue::new("world spec hash mismatch").with_path(tile_path.to_path_buf()),
@@ -256,7 +271,7 @@ fn validate_tile_container(
     }
 
     validate_directory(&reader, tile_path, issues);
-    validate_sections(&reader, tile_path, issues);
+    validate_sections(&reader, tile_path, expected_spec, issues);
 
     if quarantine
         && issues
@@ -326,6 +341,7 @@ fn validate_directory(
 fn validate_sections(
     reader: &TileContainerReader,
     tile_path: &Path,
+    expected_spec: WorldSpec,
     issues: &mut Vec<ValidationIssue>,
 ) {
     if reader.section(TileSectionTag::META).is_none() {
@@ -355,21 +371,21 @@ fn validate_sections(
                 }
             }
             tag if tag == TileSectionTag::HMAP => match decode_hmap(&payload) {
-                Ok(hmap) => validate_hmap(&hmap, tile_path, issues),
+                Ok(hmap) => validate_hmap(&hmap, expected_spec, tile_path, issues),
                 Err(err) => issues.push(
                     ValidationIssue::new(format!("HMAP decode failed: {err}"))
                         .with_path(tile_path.to_path_buf()),
                 ),
             },
             tag if tag == TileSectionTag::WMAP => match decode_wmap(&payload) {
-                Ok(wmap) => validate_wmap(&wmap, tile_path, issues),
+                Ok(wmap) => validate_wmap(&wmap, expected_spec, tile_path, issues),
                 Err(err) => issues.push(
                     ValidationIssue::new(format!("WMAP decode failed: {err}"))
                         .with_path(tile_path.to_path_buf()),
                 ),
             },
             tag if tag == TileSectionTag::LIQD => match decode_liqd(&payload) {
-                Ok(liqd) => validate_liqd(&liqd, tile_path, issues),
+                Ok(liqd) => validate_liqd(&liqd, expected_spec, tile_path, issues),
                 Err(err) => issues.push(
                     ValidationIssue::new(format!("LIQD decode failed: {err}"))
                         .with_path(tile_path.to_path_buf()),
@@ -389,11 +405,12 @@ fn validate_sections(
 
 fn validate_hmap(
     hmap: &crate::tile_container::HmapSection,
+    expected_spec: WorldSpec,
     tile_path: &Path,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    if hmap.width != DEFAULT_WORLD_SPEC.heightfield_samples
-        || hmap.height != DEFAULT_WORLD_SPEC.heightfield_samples
+    if hmap.width != expected_spec.heightfield_samples
+        || hmap.height != expected_spec.heightfield_samples
     {
         issues.push(
             ValidationIssue::new("HMAP dimensions do not match world spec")
@@ -412,11 +429,12 @@ fn validate_hmap(
 
 fn validate_wmap(
     wmap: &crate::tile_container::WmapSection,
+    expected_spec: WorldSpec,
     tile_path: &Path,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    if wmap.width != DEFAULT_WORLD_SPEC.weightmap_resolution
-        || wmap.height != DEFAULT_WORLD_SPEC.weightmap_resolution
+    if wmap.width != expected_spec.weightmap_resolution
+        || wmap.height != expected_spec.weightmap_resolution
     {
         issues.push(
             ValidationIssue::new("WMAP dimensions do not match world spec")
@@ -427,11 +445,12 @@ fn validate_wmap(
 
 fn validate_liqd(
     liqd: &crate::tile_container::LiqdSection,
+    expected_spec: WorldSpec,
     tile_path: &Path,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    if liqd.width != DEFAULT_WORLD_SPEC.liquids_resolution
-        || liqd.height != DEFAULT_WORLD_SPEC.liquids_resolution
+    if liqd.width != expected_spec.liquids_resolution
+        || liqd.height != expected_spec.liquids_resolution
     {
         issues.push(
             ValidationIssue::new("LIQD dimensions do not match world spec")

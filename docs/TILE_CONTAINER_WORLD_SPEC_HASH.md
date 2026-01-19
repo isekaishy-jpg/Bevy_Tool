@@ -18,14 +18,16 @@ weightmap_resolution=<u16>;
 liquids_resolution=<u16>
 ```
 
-## Defaults
+## Manifest fields
 
-The current defaults match `docs/WORLD_SPEC.md`:
-- tile_size_meters = 512.0
-- chunks_per_tile = 16
-- heightfield_samples = 513
-- weightmap_resolution = 256
-- liquids_resolution = 256
+The world spec hash is derived from `project.toml` fields:
+- tile_size_meters
+- chunk_resolution (chunks per tile)
+- heightfield_resolution
+- weightmap_resolution
+- liquids_resolution
+
+Defaults match `docs/WORLD_SPEC.md` when those fields are not overridden.
 
 ## Region hash
 

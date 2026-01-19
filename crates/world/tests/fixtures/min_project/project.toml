@@ -2,3 +2,6 @@ format_version = 1
 world_name = "CIValidation"
 tile_size_meters = 512.0
 chunk_resolution = 16
+heightfield_resolution = 513
+weightmap_resolution = 256
+liquids_resolution = 256

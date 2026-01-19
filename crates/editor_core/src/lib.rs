@@ -1,8 +1,11 @@
 //! Editor application assembly (plugins, commands, undo/redo).
 
+use bevy::log::warn;
 use bevy::prelude::*;
 
 pub mod commands;
+pub mod prefs;
+pub mod project;
 
 #[derive(Resource)]
 pub struct EditorConfig {
@@ -21,6 +24,15 @@ pub struct EditorCorePlugin;
 
 impl Plugin for EditorCorePlugin {
     fn build(&self, app: &mut App) {
+        let prefs = prefs::load_editor_prefs().unwrap_or_else(|err| {
+            warn!("failed to load editor prefs: {err}");
+            prefs::EditorPrefs::default()
+        });
+
         app.init_resource::<EditorConfig>();
+        app.init_resource::<project::ProjectState>();
+        app.insert_resource(prefs);
+        app.add_observer(project::apply_project_commands);
+        app.add_systems(Update, prefs::save_prefs_on_change);
     }
 }

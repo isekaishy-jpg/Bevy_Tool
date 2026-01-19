@@ -2,8 +2,13 @@
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use editor_core::prefs::EditorPrefs;
+use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
+
+pub mod project;
+pub use project::ProjectPanelState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PanelId {
@@ -44,7 +49,9 @@ impl Default for DockLayout {
 }
 
 struct EditorTabViewer<'a> {
-    config: &'a EditorConfig,
+    project_state: &'a ProjectState,
+    prefs: &'a mut EditorPrefs,
+    project_ui: &'a mut ProjectPanelState,
 }
 
 impl<'a> TabViewer for EditorTabViewer<'a> {
@@ -56,7 +63,7 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
             PanelId::Assets => "Assets".into(),
             PanelId::Outliner => "Outliner".into(),
             PanelId::Inspector => "Inspector".into(),
-            PanelId::World => "World".into(),
+            PanelId::World => "Project".into(),
             PanelId::Console => "Console".into(),
         }
     }
@@ -83,9 +90,7 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
                 ui.label("Select an entity to inspect.");
             }
             PanelId::World => {
-                ui.heading("World");
-                ui.separator();
-                ui.label(format!("Project: {}", self.config.project_name));
+                project::draw_project_panel(ui, self.project_ui, self.project_state, self.prefs);
             }
             PanelId::Console => {
                 ui.heading("Console");
@@ -110,7 +115,11 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
 
 pub fn draw_root_panel(
     mut contexts: EguiContexts,
+    mut commands: Commands,
     config: Res<EditorConfig>,
+    project_state: Res<ProjectState>,
+    mut prefs: ResMut<EditorPrefs>,
+    mut project_ui: ResMut<ProjectPanelState>,
     mut dock_layout: ResMut<DockLayout>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -130,10 +139,18 @@ pub fn draw_root_panel(
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
-        let mut viewer = EditorTabViewer { config: &config };
+        let mut viewer = EditorTabViewer {
+            project_state: &project_state,
+            prefs: &mut prefs,
+            project_ui: &mut project_ui,
+        };
         let style = Style::from_egui(ui.style().as_ref());
         DockArea::new(&mut dock_layout.dock_state)
             .style(style)
             .show_inside(ui, &mut viewer);
     });
+
+    for command in project_ui.pending_commands.drain(..) {
+        commands.trigger(command);
+    }
 }

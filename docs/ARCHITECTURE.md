@@ -11,7 +11,7 @@
 - `world`: schema, persistence, validation, migrations
 - `runtime`: streaming manager + tile/chunk lifecycle
 - `viewport`: camera/picking/gizmos + integration points
-- `editor_core`: tools framework, command stack, selection model
+- `editor_core`: tools framework, command stack, selection model, project state/prefs
 - `editor_ui`: egui UI, docking, panels
 - `exporter`: artifact build pipeline
 - `preview`: artifact-only preview runtime
