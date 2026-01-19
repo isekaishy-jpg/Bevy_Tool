@@ -11,8 +11,10 @@ use world::{AssetId, InstanceId, TileCoord, TileId};
 #[test]
 fn create_save_reload_roundtrip() {
     let temp = tempdir().expect("tempdir");
-    let mut manifest = ProjectManifest::default();
-    manifest.world_name = "TestWorld".to_string();
+    let manifest = ProjectManifest {
+        world_name: "TestWorld".to_string(),
+        ..Default::default()
+    };
 
     let layout = create_project(temp.path(), &manifest).expect("create project");
 
@@ -62,8 +64,10 @@ fn create_save_reload_roundtrip() {
 #[test]
 fn validator_flags_newer_manifest_version() {
     let temp = tempdir().expect("tempdir");
-    let mut manifest = ProjectManifest::default();
-    manifest.format_version = WORLD_SCHEMA_VERSION + 1;
+    let manifest = ProjectManifest {
+        format_version: WORLD_SCHEMA_VERSION + 1,
+        ..Default::default()
+    };
 
     create_project(temp.path(), &manifest).expect("create project");
 
