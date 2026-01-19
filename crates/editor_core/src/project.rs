@@ -10,6 +10,7 @@ use world::storage::{
     write_world_manifest, ProjectLayout,
 };
 
+use crate::autosave::{clear_recovery_state, refresh_recovery_state, RecoveryState};
 use crate::editor_state::{load_project_editor_state, ProjectEditorStateResource};
 use crate::prefs::EditorPrefs;
 use crate::EditorConfig;
@@ -82,12 +83,14 @@ pub fn apply_project_commands(
     mut config: ResMut<EditorConfig>,
     mut prefs: ResMut<EditorPrefs>,
     mut editor_state: ResMut<ProjectEditorStateResource>,
+    mut recovery_state: ResMut<RecoveryState>,
 ) {
     match event.event() {
         ProjectCommand::Open { root } => match open_project(root.as_path(), &mut editor_state) {
             Ok(info) => {
                 update_config(&mut config, &info);
                 prefs.record_project(&info.root, info.manifest.project_name.clone());
+                refresh_recovery_state(&mut recovery_state, &info.root);
                 state.current = Some(info);
                 state.last_error = None;
             }
@@ -101,6 +104,7 @@ pub fn apply_project_commands(
                 Ok(info) => {
                     update_config(&mut config, &info);
                     prefs.record_project(&info.root, info.manifest.project_name.clone());
+                    clear_recovery_state(&mut recovery_state, &info.root);
                     state.current = Some(info);
                     state.last_error = None;
                 }

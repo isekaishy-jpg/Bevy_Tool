@@ -3,6 +3,7 @@
 use bevy::log::warn;
 use bevy::prelude::*;
 
+pub mod autosave;
 pub mod command_registry;
 pub mod commands;
 pub mod editor_state;
@@ -36,6 +37,9 @@ impl Plugin for EditorCorePlugin {
 
         app.init_resource::<EditorConfig>();
         app.init_resource::<project::ProjectState>();
+        app.init_resource::<autosave::AutosaveSettings>();
+        app.init_resource::<autosave::AutosaveState>();
+        app.init_resource::<autosave::RecoveryState>();
         app.init_resource::<editor_state::ProjectEditorStateResource>();
         app.init_resource::<commands::CommandStack>();
         app.init_resource::<command_registry::OverlayState>();
@@ -47,5 +51,6 @@ impl Plugin for EditorCorePlugin {
         app.add_systems(Startup, command_registry::validate_command_registry);
         app.add_systems(Update, prefs::save_prefs_on_change);
         app.add_systems(Update, editor_state::save_project_state_on_change);
+        app.add_systems(Update, autosave::autosave_system);
     }
 }

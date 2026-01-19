@@ -9,11 +9,22 @@ use serde::{Deserialize, Serialize};
 const EDITOR_STATE_FILE: &str = "editor_state.toml";
 const EDITOR_DIR_NAME: &str = ".editor";
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProjectEditorState {
     pub dock_layout: Option<String>,
     pub last_world_id: Option<String>,
+    pub autosave_enabled: bool,
+}
+
+impl Default for ProjectEditorState {
+    fn default() -> Self {
+        Self {
+            dock_layout: None,
+            last_world_id: None,
+            autosave_enabled: true,
+        }
+    }
 }
 
 #[derive(Resource, Default)]

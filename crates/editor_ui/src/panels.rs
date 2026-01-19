@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use editor_core::autosave::{restore_backup, AutosaveSettings, RecoveryState};
 use editor_core::command_registry::CommandRegistry;
 use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::log_capture::LogBuffer;
@@ -149,8 +150,10 @@ pub fn draw_root_panel(
     mut commands: Commands,
     config: Res<EditorConfig>,
     registry: Res<CommandRegistry>,
-    project_state: Res<ProjectState>,
+    mut project_state: ResMut<ProjectState>,
     log_buffer: Option<Res<LogBuffer>>,
+    autosave_settings: Res<AutosaveSettings>,
+    mut recovery_state: ResMut<RecoveryState>,
     mut prefs: ResMut<EditorPrefs>,
     mut project_ui: ResMut<ProjectPanelState>,
     mut palette_state: ResMut<CommandPaletteState>,
@@ -178,7 +181,43 @@ pub fn draw_root_panel(
                 dock_layout.reset();
                 editor_state.state.dock_layout = None;
             }
+            ui.separator();
+            let autosave_label = format!(
+                "Autosave ({:.0}s)",
+                autosave_settings.interval.as_secs_f64()
+            );
+            ui.checkbox(&mut editor_state.state.autosave_enabled, autosave_label)
+                .on_hover_text("Automatically saves project + world manifests.");
         });
+        if let Some(backup) = recovery_state.pending_backup.clone() {
+            if !recovery_state.dismissed {
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label("Recovery available");
+                    if ui.button("Restore autosave").clicked() {
+                        if let Some(project) = &project_state.current {
+                            match restore_backup(&project.root, &backup.path) {
+                                Ok(_) => {
+                                    recovery_state.dismissed = true;
+                                    project_ui.pending_commands.push(
+                                        editor_core::project::ProjectCommand::Open {
+                                            root: project.root.clone(),
+                                        },
+                                    );
+                                }
+                                Err(err) => {
+                                    project_state.last_error =
+                                        Some(format!("restore failed: {err}"));
+                                }
+                            }
+                        }
+                    }
+                    if ui.button("Dismiss").clicked() {
+                        recovery_state.dismissed = true;
+                    }
+                });
+            }
+        }
         ui.separator();
         ui.horizontal(|ui| {
             ui.menu_button("File", |ui| {
@@ -230,7 +269,7 @@ pub fn draw_root_panel(
 
     egui::CentralPanel::default().show(ctx, |ui| {
         let mut viewer = EditorTabViewer {
-            project_state: &project_state,
+            project_state: project_state.as_ref(),
             log_buffer: log_buffer.as_deref(),
             config: &config,
             prefs: &mut prefs,

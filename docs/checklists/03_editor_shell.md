@@ -25,9 +25,9 @@
 - [x] Copy diagnostics bundle
 
 ## Milestone 03.5 - Autosave and crash recovery
-- [ ] Autosave schedule
-- [ ] Recovery prompt
-- [ ] Backup rotation
+- [x] Autosave schedule
+- [x] Recovery prompt
+- [x] Backup rotation
 
 ## Acceptance
 - Restart returns to last project + layout; autosave is recoverable.
