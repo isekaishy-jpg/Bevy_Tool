@@ -1,19 +1,4 @@
-#[derive(Debug, Clone, Copy)]
-pub struct WorldSpec {
-    pub tile_size_meters: f32,
-    pub chunks_per_tile: u16,
-    pub heightfield_samples: u16,
-    pub weightmap_resolution: u16,
-    pub liquids_resolution: u16,
-}
-
-pub const DEFAULT_WORLD_SPEC: WorldSpec = WorldSpec {
-    tile_size_meters: 512.0,
-    chunks_per_tile: 16,
-    heightfield_samples: 513,
-    weightmap_resolution: 256,
-    liquids_resolution: 256,
-};
+pub use crate::schema::{WorldSpec, DEFAULT_WORLD_SPEC};
 
 pub fn hash_world_spec(spec: WorldSpec) -> u64 {
     let data = format!(
@@ -27,17 +12,11 @@ pub fn hash_world_spec(spec: WorldSpec) -> u64 {
     fnv1a_64(data.as_bytes())
 }
 
-pub fn world_spec_from_manifest(manifest: &ProjectManifest) -> WorldSpec {
-    WorldSpec {
-        tile_size_meters: manifest.tile_size_meters,
-        chunks_per_tile: manifest.chunk_resolution,
-        heightfield_samples: manifest.heightfield_resolution,
-        weightmap_resolution: manifest.weightmap_resolution,
-        liquids_resolution: manifest.liquids_resolution,
-    }
+pub fn world_spec_from_manifest(manifest: &WorldManifest) -> WorldSpec {
+    manifest.world_spec
 }
 
-pub fn hash_world_spec_from_manifest(manifest: &ProjectManifest) -> u64 {
+pub fn hash_world_spec_from_manifest(manifest: &WorldManifest) -> u64 {
     hash_world_spec(world_spec_from_manifest(manifest))
 }
 
@@ -53,4 +32,4 @@ fn fnv1a_64(data: &[u8]) -> u64 {
     }
     hash
 }
-use crate::schema::ProjectManifest;
+use crate::schema::WorldManifest;

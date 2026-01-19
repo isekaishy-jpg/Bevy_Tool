@@ -47,3 +47,9 @@ All user operations should be expressed as commands:
 - editor_core validates and produces commands
 - world layer is modified
 - runtime/viewport observe and rebuild derived state
+
+## Project model
+- Global prefs: `editor.toml` (recents, last project)
+- Project root: `project.toml` + `.editor/` (editor-only state)
+- Worlds: `worlds/<world_id>/world.toml` (world spec + region registry)
+- Regions: `regions/<region_id>/tiles/x####_y####.tile` with defined bounds

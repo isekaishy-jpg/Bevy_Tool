@@ -16,9 +16,9 @@ const APP_NAME: &str = "BevyTool";
 #[serde(default)]
 pub struct EditorPrefs {
     pub prefs_version: u32,
-    pub last_project: Option<String>,
+    #[serde(alias = "last_project")]
+    pub last_project_path: Option<String>,
     pub recent_projects: Vec<RecentProject>,
-    pub dock_layout: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,9 +32,8 @@ impl Default for EditorPrefs {
     fn default() -> Self {
         Self {
             prefs_version: PREFS_VERSION,
-            last_project: None,
+            last_project_path: None,
             recent_projects: Vec::new(),
-            dock_layout: None,
         }
     }
 }
@@ -42,7 +41,7 @@ impl Default for EditorPrefs {
 impl EditorPrefs {
     pub fn record_project(&mut self, path: &Path, display_name: String) {
         let normalized = normalize_path(path);
-        self.last_project = Some(normalized.clone());
+        self.last_project_path = Some(normalized.clone());
 
         if let Some(entry) = self
             .recent_projects
@@ -70,8 +69,8 @@ impl EditorPrefs {
         let normalized = normalize_path(path);
         self.recent_projects
             .retain(|entry| entry.path != normalized);
-        if self.last_project.as_deref() == Some(&normalized) {
-            self.last_project = None;
+        if self.last_project_path.as_deref() == Some(&normalized) {
+            self.last_project_path = None;
         }
     }
 

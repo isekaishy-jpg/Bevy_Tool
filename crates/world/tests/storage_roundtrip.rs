@@ -2,23 +2,36 @@ use std::fs;
 use std::path::Path;
 
 use tempfile::tempdir;
-use world::schema::{ProjectManifest, WORLD_SCHEMA_VERSION};
+use world::schema::{
+    ProjectManifest, RegionBounds, RegionManifest, WorldManifest, PROJECT_FORMAT_VERSION,
+};
 use world::storage::{
-    create_project, load_tile_stub, read_manifest, save_tile_stub, tile_container_path, LiquidBody,
-    LiquidKind, LiquidsMask, LiquidsMeta, PropInstance, PropsInstances, TerrainHeight, TileMeta,
-    TileStub,
+    create_project, create_world, load_tile_stub, read_project_manifest, save_tile_stub,
+    tile_container_path, LiquidBody, LiquidKind, LiquidsMask, LiquidsMeta, PropInstance,
+    PropsInstances, TerrainHeight, TileMeta, TileStub,
 };
 use world::{AssetId, InstanceId, TileCoord, TileId};
 
 #[test]
 fn create_save_reload_roundtrip() {
     let temp = tempdir().expect("tempdir");
-    let manifest = ProjectManifest {
-        world_name: "TestWorld".to_string(),
+    let project_manifest = ProjectManifest {
+        project_name: "TestProject".to_string(),
         ..Default::default()
     };
 
-    let layout = create_project(temp.path(), &manifest).expect("create project");
+    let project_layout = create_project(temp.path(), &project_manifest).expect("create project");
+    let world_manifest = WorldManifest {
+        world_id: "world_0".to_string(),
+        world_name: "TestWorld".to_string(),
+        regions: vec![RegionManifest {
+            region_id: "region_0".to_string(),
+            name: "Region 0".to_string(),
+            bounds: RegionBounds::new(0, 0, 1, 1),
+        }],
+        ..WorldManifest::default()
+    };
+    let world_layout = create_world(&project_layout, &world_manifest).expect("create world");
 
     let tile_id = TileId {
         coord: TileCoord { x: 1, y: -2 },
@@ -50,8 +63,9 @@ fn create_save_reload_roundtrip() {
         props: props.clone(),
     };
 
-    save_tile_stub(&layout, "region_0", tile_id, &stub).expect("save tile stub");
-    let loaded = load_tile_stub(&layout, "region_0", tile_id).expect("load tile stub");
+    save_tile_stub(&world_layout, &world_manifest, "region_0", tile_id, &stub)
+        .expect("save tile stub");
+    let loaded = load_tile_stub(&world_layout, "region_0", tile_id).expect("load tile stub");
 
     assert_eq!(loaded.meta, meta);
     assert_eq!(loaded.terrain, terrain);
@@ -59,15 +73,15 @@ fn create_save_reload_roundtrip() {
     assert_eq!(loaded.liquids_meta, liquids_meta);
     assert_eq!(loaded.props, props);
 
-    let loaded_manifest = read_manifest(temp.path()).expect("read manifest");
-    assert_eq!(loaded_manifest, manifest);
+    let loaded_manifest = read_project_manifest(temp.path()).expect("read manifest");
+    assert_eq!(loaded_manifest, project_manifest);
 }
 
 #[test]
 fn validator_flags_newer_manifest_version() {
     let temp = tempdir().expect("tempdir");
     let manifest = ProjectManifest {
-        format_version: WORLD_SCHEMA_VERSION + 1,
+        format_version: PROJECT_FORMAT_VERSION + 1,
         ..Default::default()
     };
 
@@ -85,13 +99,23 @@ fn validator_flags_newer_manifest_version() {
 #[test]
 fn validator_quarantines_corrupt_tile() {
     let temp = tempdir().expect("tempdir");
-    let manifest = ProjectManifest::default();
-    let layout = create_project(temp.path(), &manifest).expect("create project");
+    let project_manifest = ProjectManifest::default();
+    let project_layout = create_project(temp.path(), &project_manifest).expect("create project");
+    let world_manifest = WorldManifest {
+        world_id: "world_0".to_string(),
+        regions: vec![RegionManifest {
+            region_id: "region_0".to_string(),
+            name: "Region 0".to_string(),
+            bounds: RegionBounds::new(0, 0, 1, 1),
+        }],
+        ..WorldManifest::default()
+    };
+    let world_layout = create_world(&project_layout, &world_manifest).expect("create world");
 
     let tile_id = TileId {
         coord: TileCoord { x: 0, y: 0 },
     };
-    let tile_path = tile_container_path(&layout, "region_0", tile_id);
+    let tile_path = tile_container_path(&world_layout, "region_0", tile_id);
     if let Some(parent) = tile_path.parent() {
         fs::create_dir_all(parent).expect("create tile dir");
     }
@@ -106,7 +130,7 @@ fn validator_quarantines_corrupt_tile() {
     );
 
     assert!(
-        has_quarantined_tile(&layout.quarantine_dir),
+        has_quarantined_tile(&world_layout.quarantine_dir),
         "expected quarantined tile"
     );
 }

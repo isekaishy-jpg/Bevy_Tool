@@ -7,17 +7,27 @@ This is the authoring/source format. Runtime artifacts are produced by the expor
 ```
 <project_root>/
   project.toml
-  tiles/
-    <region>/
-      x####_y####.tile
-    _quarantine/
-      <timestamp>/
-        <region>/
-          x####_y####.tile
+  .editor/
+    editor_state.toml
+  worlds/
+    <world_id>/
+      world.toml
+      regions/
+        <region_id>/
+          tiles/
+            x####_y####.tile
+        _quarantine/
+          <timestamp>/
+            <region_id>/
+              x####_y####.tile
+  assets/
+  cache/
+  exports/
 ```
 
 ## Versioning
 - `project.toml` contains `format_version`
+- `world.toml` contains `format_version`
 - Each `.tile` contains:
   - container version in the header
   - section versions inside each payload
@@ -25,12 +35,28 @@ This is the authoring/source format. Runtime artifacts are produced by the expor
 
 ## project.toml fields
 - format_version
+- project_id
+- project_name
+- created_unix_ms
+- worlds_dir
+- assets_dir
+- exports_dir
+- cache_dir
+
+## world.toml fields
+- format_version
+- world_id
 - world_name
-- tile_size_meters
-- chunk_resolution (chunks per tile)
-- heightfield_resolution
-- weightmap_resolution
-- liquids_resolution
+- world_spec:
+  - tile_size_meters
+  - chunks_per_tile
+  - heightfield_samples
+  - weightmap_resolution
+  - liquids_resolution
+- regions[]:
+  - region_id
+  - name
+  - bounds (min_x, min_y, max_x, max_y)
 
 ## Deterministic ordering
 - Tiles are ordered by region, then tile coord (x, y)

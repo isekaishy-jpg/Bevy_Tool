@@ -9,6 +9,7 @@ bevy = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
+uuid = { workspace = true }
 
 foundation = { path = "../foundation" }
 world = { path = "../world" }

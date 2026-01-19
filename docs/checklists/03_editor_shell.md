@@ -2,8 +2,11 @@
 
 ## Milestone 03.1 - Project UX
 - [x] New/Open project
+- [x] Auto-create project folder when none selected
 - [x] Recent projects
 - [x] Project settings UI
+- [x] World settings UI (name + spec; lock after tiles exist)
+- [x] Region manager (defined bounds)
 - [x] Per-project vs global preferences
 
 ## Milestone 03.2 - Docking

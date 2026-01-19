@@ -18,7 +18,7 @@ Fields (in order):
 - flags: u32 (reserved)
 - tile_x: i32
 - tile_y: i32
-- region_hash: u64 (FNV-1a)
+- region_hash: u64 (FNV-1a of region_id string)
 - world_spec_hash: u64 (FNV-1a)
 - section_count: u32
 - section_dir_offset: u64 (byte offset to directory)

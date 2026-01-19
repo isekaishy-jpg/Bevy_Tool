@@ -9,7 +9,7 @@ This document defines the validator contract for `.tile` containers.
 - endianness must be little
 - section_count must be <= 256
 - section_dir_offset must be >= header size and within file bounds
-- world_spec_hash must match the active project spec
+- world_spec_hash must match the active world spec (from `world.toml`)
 
 ## Directory validation
 
@@ -41,7 +41,7 @@ This document defines the validator contract for `.tile` containers.
 When quarantine mode is enabled, tiles that fail validation are moved to:
 
 ```
-tiles/_quarantine/<timestamp>/<region>/x####_y####.tile
+worlds/<world_id>/regions/_quarantine/<timestamp>/<region_id>/x####_y####.tile
 ```
 
 Triggers:

@@ -1,0 +1,15 @@
+format_version = 1
+world_id = "world_0"
+world_name = "CIValidation"
+
+[world_spec]
+tile_size_meters = 512.0
+chunks_per_tile = 16
+heightfield_samples = 513
+weightmap_resolution = 256
+liquids_resolution = 256
+
+[[regions]]
+region_id = "region_0"
+name = "Region 0"
+bounds = { min_x = 0, min_y = 0, max_x = 1, max_y = 1 }

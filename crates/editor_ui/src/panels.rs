@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use editor_core::command_registry::CommandRegistry;
+use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::prefs::EditorPrefs;
 use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
@@ -28,6 +29,7 @@ pub enum PanelId {
 pub struct DockLayout {
     dock_state: DockState<PanelId>,
     last_saved: Option<String>,
+    loaded_project: Option<String>,
 }
 
 impl DockLayout {
@@ -50,6 +52,7 @@ impl DockLayout {
         Self {
             dock_state: Self::default_state(),
             last_saved: None,
+            loaded_project: None,
         }
     }
 
@@ -59,21 +62,9 @@ impl DockLayout {
     }
 }
 
-impl FromWorld for DockLayout {
-    fn from_world(world: &mut World) -> Self {
-        let Some(prefs) = world.get_resource::<EditorPrefs>() else {
-            return Self::new_default();
-        };
-        let Some(layout) = prefs.dock_layout.as_deref() else {
-            return Self::new_default();
-        };
-        match serde_json::from_str::<DockState<PanelId>>(layout) {
-            Ok(dock_state) => Self {
-                dock_state,
-                last_saved: Some(layout.to_string()),
-            },
-            Err(_) => Self::new_default(),
-        }
+impl Default for DockLayout {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
@@ -153,23 +144,75 @@ pub fn draw_root_panel(
     mut project_ui: ResMut<ProjectPanelState>,
     mut palette_state: ResMut<CommandPaletteState>,
     mut dock_layout: ResMut<DockLayout>,
+    mut editor_state: ResMut<ProjectEditorStateResource>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
 
+    sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
 
     egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Bevy MMO World Editor");
             ui.separator();
-            ui.label(format!("Project: {}", config.project_name));
+            ui.label(format!(
+                "Project: {} / World: {}",
+                config.project_name, config.world_name
+            ));
             ui.separator();
             if ui.button("Reset Layout").clicked() {
                 dock_layout.reset();
-                prefs.dock_layout = None;
+                editor_state.state.dock_layout = None;
             }
+        });
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.menu_button("File", |ui| {
+                if ui.button("Save").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::Save,
+                    });
+                    ui.close();
+                }
+                if ui.button("Save All").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::SaveAllDirty,
+                    });
+                    ui.close();
+                }
+            });
+
+            ui.menu_button("Edit", |ui| {
+                if ui.button("Undo").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::Undo,
+                    });
+                    ui.close();
+                }
+                if ui.button("Redo").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::Redo,
+                    });
+                    ui.close();
+                }
+            });
+
+            ui.menu_button("View", |ui| {
+                if ui.button("Focus Selection").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::FocusSelection,
+                    });
+                    ui.close();
+                }
+                if ui.button("Toggle Overlays").clicked() {
+                    commands.trigger(editor_core::command_registry::CommandInvoked {
+                        id: editor_core::command_registry::CommandId::ToggleOverlays,
+                    });
+                    ui.close();
+                }
+            });
         });
     });
 
@@ -185,7 +228,7 @@ pub fn draw_root_panel(
             .show_inside(ui, &mut viewer);
     });
 
-    persist_layout(&mut prefs, &mut dock_layout);
+    persist_layout(&mut editor_state, &mut dock_layout);
     for command in project_ui.pending_commands.drain(..) {
         commands.trigger(command);
     }
@@ -193,7 +236,10 @@ pub fn draw_root_panel(
     command_palette::draw_command_palette(ctx, &mut palette_state, &registry, &mut commands);
 }
 
-fn persist_layout(prefs: &mut EditorPrefs, dock_layout: &mut DockLayout) {
+fn persist_layout(editor_state: &mut ProjectEditorStateResource, dock_layout: &mut DockLayout) {
+    if editor_state.root.is_none() {
+        return;
+    }
     let Ok(serialized) = serde_json::to_string(&dock_layout.dock_state) else {
         return;
     };
@@ -201,5 +247,31 @@ fn persist_layout(prefs: &mut EditorPrefs, dock_layout: &mut DockLayout) {
         return;
     }
     dock_layout.last_saved = Some(serialized.clone());
-    prefs.dock_layout = Some(serialized);
+    editor_state.state.dock_layout = Some(serialized);
+}
+
+fn sync_layout_with_project(
+    project_state: &ProjectState,
+    editor_state: &ProjectEditorStateResource,
+    dock_layout: &mut DockLayout,
+) {
+    let project_key = project_state
+        .current
+        .as_ref()
+        .map(|info| info.root.to_string_lossy().to_string());
+
+    if dock_layout.loaded_project == project_key {
+        return;
+    }
+
+    dock_layout.loaded_project = project_key.clone();
+    if let Some(layout) = editor_state.state.dock_layout.as_deref() {
+        if let Ok(dock_state) = serde_json::from_str::<DockState<PanelId>>(layout) {
+            dock_layout.dock_state = dock_state;
+            dock_layout.last_saved = Some(layout.to_string());
+            return;
+        }
+    }
+
+    dock_layout.reset();
 }

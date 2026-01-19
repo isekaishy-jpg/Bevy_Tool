@@ -1,5 +1,5 @@
-use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{ensure_tile_dir, tile_dir, Layout};
+use crate::schema::WORLD_FORMAT_VERSION;
+use crate::storage::{ensure_tile_dir, tile_dir, WorldLayout};
 use anyhow::Context;
 use foundation::ids::TileId;
 use serde::{Deserialize, Serialize};
@@ -16,14 +16,14 @@ pub struct TileMeta {
 impl TileMeta {
     pub fn new(tile_id: TileId) -> Self {
         Self {
-            format_version: WORLD_SCHEMA_VERSION,
+            format_version: WORLD_FORMAT_VERSION,
             tile_id,
         }
     }
 }
 
 pub fn write_tile_meta(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     meta: &TileMeta,
@@ -35,7 +35,11 @@ pub fn write_tile_meta(
     Ok(())
 }
 
-pub fn read_tile_meta(layout: &Layout, region: &str, tile_id: TileId) -> anyhow::Result<TileMeta> {
+pub fn read_tile_meta(
+    layout: &WorldLayout,
+    region: &str,
+    tile_id: TileId,
+) -> anyhow::Result<TileMeta> {
     let path = tile_dir(layout, region, tile_id).join(TILE_META_FILE);
     let bytes = fs::read(&path).with_context(|| format!("read tile meta {:?}", path))?;
     let meta = serde_json::from_slice(&bytes)?;

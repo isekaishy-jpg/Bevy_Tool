@@ -1,9 +1,11 @@
-use crate::migrations::migrate_manifest;
-use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{default_layout, quarantine_tile_file, read_manifest};
-use crate::tile_container::world_spec_hash::{
-    hash_region, hash_world_spec_from_manifest, world_spec_from_manifest, WorldSpec,
+use crate::migrations::{migrate_project_manifest, migrate_world_manifest};
+use crate::schema::{RegionManifest, WorldManifest, WorldSpec, PROJECT_FORMAT_VERSION};
+use crate::storage::{
+    project_layout, quarantine_tile_file, read_project_manifest, read_world_manifest,
+    region_tiles_dir, world_layout, ProjectLayout, WorldLayout, PROJECT_MANIFEST_FILE,
+    WORLD_MANIFEST_FILE,
 };
+use crate::tile_container::world_spec_hash::{hash_region, hash_world_spec_from_manifest};
 use crate::tile_container::{
     decode_hmap, decode_liqd, decode_meta, decode_prop, decode_wmap, TileContainerReader,
     TileSectionTag, CONTAINER_VERSION, DEFAULT_ALIGNMENT, DIR_ENTRY_SIZE, HEADER_SIZE,
@@ -11,6 +13,7 @@ use crate::tile_container::{
 };
 use foundation::ids::{TileCoord, TileId};
 use serde::Serialize;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize)]
@@ -52,73 +55,132 @@ pub fn validate_project_and_quarantine_json(project_root: &Path) -> anyhow::Resu
 }
 
 fn validate_project_impl(project_root: &Path, quarantine: bool) -> Vec<ValidationIssue> {
-    let layout = default_layout(project_root);
     let mut issues = Vec::new();
 
-    let manifest = match read_manifest(&layout.project_root) {
+    let manifest = match read_project_manifest(project_root) {
         Ok(manifest) => manifest,
         Err(err) => {
             issues.push(
                 ValidationIssue::new(format!("manifest read failed: {err}"))
-                    .with_path(layout.project_root.join(crate::storage::MANIFEST_FILE)),
+                    .with_path(project_root.join(PROJECT_MANIFEST_FILE)),
             );
             return issues;
         }
     };
 
-    if manifest.format_version > WORLD_SCHEMA_VERSION {
+    if manifest.format_version > PROJECT_FORMAT_VERSION {
         issues.push(
             ValidationIssue::new(format!(
                 "manifest format version {} exceeds supported {}",
-                manifest.format_version, WORLD_SCHEMA_VERSION
+                manifest.format_version, PROJECT_FORMAT_VERSION
             ))
-            .with_path(layout.project_root.join(crate::storage::MANIFEST_FILE)),
+            .with_path(project_root.join(PROJECT_MANIFEST_FILE)),
         );
     }
 
-    if let Err(err) = migrate_manifest(&mut manifest.clone()) {
+    if let Err(err) = migrate_project_manifest(&mut manifest.clone()) {
         issues.push(ValidationIssue::new(format!(
-            "migration check failed: {err}"
+            "manifest migration check failed: {err}"
         )));
     }
 
-    let expected_spec_hash = hash_world_spec_from_manifest(&manifest);
-    let expected_spec = world_spec_from_manifest(&manifest);
-    scan_tiles(
-        &layout,
-        expected_spec_hash,
-        expected_spec,
-        quarantine,
-        &mut issues,
-    );
+    let layout = project_layout(project_root, &manifest);
+    scan_worlds(&layout, quarantine, &mut issues);
 
     issues
 }
 
-fn scan_tiles(
-    layout: &crate::storage::Layout,
-    expected_spec_hash: u64,
-    expected_spec: WorldSpec,
-    quarantine: bool,
-    issues: &mut Vec<ValidationIssue>,
-) {
-    if !layout.tiles_dir.exists() {
+fn scan_worlds(layout: &ProjectLayout, quarantine: bool, issues: &mut Vec<ValidationIssue>) {
+    if !layout.worlds_dir.exists() {
+        issues.push(
+            ValidationIssue::new("worlds directory missing").with_path(layout.worlds_dir.clone()),
+        );
         return;
     }
 
-    let regions = match std::fs::read_dir(&layout.tiles_dir) {
+    let worlds = match std::fs::read_dir(&layout.worlds_dir) {
         Ok(entries) => entries,
         Err(err) => {
             issues.push(
-                ValidationIssue::new(format!("read tiles dir failed: {err}"))
-                    .with_path(layout.tiles_dir.clone()),
+                ValidationIssue::new(format!("read worlds dir failed: {err}"))
+                    .with_path(layout.worlds_dir.clone()),
             );
             return;
         }
     };
 
-    for region_entry in regions.flatten() {
-        let region_path = region_entry.path();
+    for entry in worlds.flatten() {
+        let world_root = entry.path();
+        if !world_root.is_dir() {
+            continue;
+        }
+
+        let dir_name = match world_root.file_name().and_then(|name| name.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        let world_manifest = match read_world_manifest(&world_root) {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                issues.push(
+                    ValidationIssue::new(format!("world manifest read failed: {err}"))
+                        .with_path(world_root.join(WORLD_MANIFEST_FILE)),
+                );
+                continue;
+            }
+        };
+
+        if world_manifest.world_id != dir_name {
+            issues.push(
+                ValidationIssue::new("world_id does not match directory name")
+                    .with_path(world_root.join(WORLD_MANIFEST_FILE)),
+            );
+        }
+
+        if let Err(err) = migrate_world_manifest(&mut world_manifest.clone()) {
+            issues.push(ValidationIssue::new(format!(
+                "world migration check failed: {err}"
+            )));
+        }
+
+        let world_layout = world_layout(layout, &dir_name);
+        scan_world_tiles(&world_layout, &world_manifest, quarantine, issues);
+    }
+}
+
+fn scan_world_tiles(
+    layout: &WorldLayout,
+    manifest: &WorldManifest,
+    quarantine: bool,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if !layout.regions_dir.exists() {
+        issues.push(
+            ValidationIssue::new("regions directory missing").with_path(layout.regions_dir.clone()),
+        );
+        return;
+    }
+
+    let mut manifest_regions = HashSet::new();
+    for region in &manifest.regions {
+        manifest_regions.insert(region.region_id.clone());
+        validate_region_entry(layout, region, issues);
+    }
+
+    let region_dirs = match std::fs::read_dir(&layout.regions_dir) {
+        Ok(entries) => entries,
+        Err(err) => {
+            issues.push(
+                ValidationIssue::new(format!("read regions dir failed: {err}"))
+                    .with_path(layout.regions_dir.clone()),
+            );
+            return;
+        }
+    };
+
+    for entry in region_dirs.flatten() {
+        let region_path = entry.path();
         if !region_path.is_dir() {
             continue;
         }
@@ -128,50 +190,103 @@ fn scan_tiles(
             _ => continue,
         };
 
-        let tiles = match std::fs::read_dir(&region_path) {
-            Ok(entries) => entries,
-            Err(err) => {
+        if !manifest_regions.contains(&region_name) {
+            issues.push(
+                ValidationIssue::new("region directory not listed in world manifest")
+                    .with_path(region_path.clone()),
+            );
+        }
+    }
+
+    let expected_spec_hash = hash_world_spec_from_manifest(manifest);
+    let expected_spec = manifest.world_spec;
+    for region in &manifest.regions {
+        scan_region_tiles(
+            layout,
+            region,
+            expected_spec_hash,
+            expected_spec,
+            quarantine,
+            issues,
+        );
+    }
+}
+
+fn validate_region_entry(
+    layout: &WorldLayout,
+    region: &RegionManifest,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if region.region_id.trim().is_empty() {
+        issues.push(ValidationIssue::new("region_id is empty"));
+    }
+    if !region.bounds.is_valid() {
+        issues.push(
+            ValidationIssue::new("region bounds are invalid")
+                .with_path(layout.world_root.join(WORLD_MANIFEST_FILE)),
+        );
+    }
+}
+
+fn scan_region_tiles(
+    layout: &WorldLayout,
+    region: &RegionManifest,
+    expected_spec_hash: u64,
+    expected_spec: WorldSpec,
+    quarantine: bool,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let tiles_dir = region_tiles_dir(layout, &region.region_id);
+    if !tiles_dir.exists() {
+        issues.push(
+            ValidationIssue::new("region tiles directory missing").with_path(tiles_dir.clone()),
+        );
+        return;
+    }
+
+    let tiles = match std::fs::read_dir(&tiles_dir) {
+        Ok(entries) => entries,
+        Err(err) => {
+            issues.push(
+                ValidationIssue::new(format!("read region tiles failed: {err}"))
+                    .with_path(tiles_dir.clone()),
+            );
+            return;
+        }
+    };
+
+    for tile_entry in tiles.flatten() {
+        let tile_path = tile_entry.path();
+        if tile_path.extension().and_then(|ext| ext.to_str()) != Some("tile") {
+            continue;
+        }
+
+        let tile_name = match tile_path.file_name().and_then(|name| name.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        let tile_id = match parse_tile_filename(tile_name) {
+            Some(tile_id) => tile_id,
+            None => {
                 issues.push(
-                    ValidationIssue::new(format!("read region failed: {err}"))
-                        .with_path(region_path.clone()),
+                    ValidationIssue::new(format!("invalid tile filename: {tile_name}"))
+                        .with_path(tile_path.clone()),
                 );
                 continue;
             }
         };
 
-        for tile_entry in tiles.flatten() {
-            let tile_path = tile_entry.path();
-            if tile_path.extension().and_then(|ext| ext.to_str()) != Some("tile") {
-                continue;
-            }
-
-            let tile_name = match tile_path.file_name().and_then(|name| name.to_str()) {
-                Some(name) => name,
-                None => continue,
-            };
-
-            let tile_id = match parse_tile_filename(tile_name) {
-                Some(tile_id) => tile_id,
-                None => {
-                    issues.push(
-                        ValidationIssue::new(format!("invalid tile filename: {tile_name}"))
-                            .with_path(tile_path.clone()),
-                    );
-                    continue;
-                }
-            };
-
-            validate_tile_container(
-                layout,
-                &region_name,
-                tile_id,
-                &tile_path,
-                expected_spec_hash,
-                expected_spec,
-                quarantine,
-                issues,
-            );
-        }
+        validate_tile_container(
+            layout,
+            &region.region_id,
+            tile_id,
+            &tile_path,
+            expected_spec_hash,
+            expected_spec,
+            quarantine,
+            issues,
+        );
     }
 }
 
@@ -192,7 +307,7 @@ fn parse_tile_filename(name: &str) -> Option<TileId> {
 
 #[allow(clippy::too_many_arguments)]
 fn validate_tile_container(
-    layout: &crate::storage::Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     tile_path: &Path,

@@ -8,7 +8,7 @@
 
 ## 02.5.1 Decisions and invariants
 
-- [x] Adopt **one file per tile**: `tiles/<region>/x####_y####.tile`
+- [x] Adopt **one file per tile**: `worlds/<world_id>/regions/<region_id>/tiles/x####_y####.tile`
 - [x] **Little-endian only** for v1
 - [x] **No whole-file compression** (compression is **per section** only)
 - [x] Sections must be **independently decodable**
@@ -130,9 +130,9 @@
   - [x] if crc fails: report section tag + tile id + action taken
 - [x] Section-level schema checks (v1)
   - [x] META present
-  - [x] If HMAP present: dimensions match project spec (or documented policy)
-  - [x] If WMAP present: dimensions match project spec
-  - [x] If LIQD present: dimensions match project spec
+  - [x] If HMAP present: dimensions match world spec (or documented policy)
+  - [x] If WMAP present: dimensions match world spec
+  - [x] If LIQD present: dimensions match world spec
 
 ### Validator outputs
 - [x] Human-readable summary (tile id, failing rule, suggested fix)

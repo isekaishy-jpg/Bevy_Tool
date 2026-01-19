@@ -1,7 +1,8 @@
 format_version = 1
-world_name = "CIValidation"
-tile_size_meters = 512.0
-chunk_resolution = 16
-heightfield_resolution = 513
-weightmap_resolution = 256
-liquids_resolution = 256
+project_id = "00000000-0000-0000-0000-000000000000"
+project_name = "CIValidation"
+created_unix_ms = 0
+worlds_dir = "worlds"
+assets_dir = "assets"
+exports_dir = "exports"
+cache_dir = "cache"

@@ -1,5 +1,5 @@
-use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{ensure_tile_dir, tile_dir, Layout};
+use crate::schema::WORLD_FORMAT_VERSION;
+use crate::storage::{ensure_tile_dir, tile_dir, WorldLayout};
 use anyhow::Context;
 use foundation::ids::{AssetId, InstanceId, TileId};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ pub struct PropsInstances {
 impl PropsInstances {
     pub fn new(instances: Vec<PropInstance>) -> Self {
         Self {
-            format_version: WORLD_SCHEMA_VERSION,
+            format_version: WORLD_FORMAT_VERSION,
             instances,
         }
     }
@@ -32,7 +32,7 @@ pub struct PropInstance {
 }
 
 pub fn write_props_instances(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     instances: &PropsInstances,
@@ -45,7 +45,7 @@ pub fn write_props_instances(
 }
 
 pub fn read_props_instances(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
 ) -> anyhow::Result<PropsInstances> {

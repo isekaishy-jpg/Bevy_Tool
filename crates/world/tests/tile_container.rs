@@ -2,8 +2,8 @@ use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
 
 use tempfile::tempdir;
-use world::schema::WORLD_SCHEMA_VERSION;
-use world::storage::{create_project, tile_container_path};
+use world::schema::{RegionBounds, RegionManifest, WorldManifest, WORLD_FORMAT_VERSION};
+use world::storage::{create_project, create_world, tile_container_path};
 use world::tile_container::world_spec_hash::{hash_region, hash_world_spec, DEFAULT_WORLD_SPEC};
 use world::tile_container::{
     decode_hmap, decode_meta, encode_hmap, encode_meta, encode_prop, HmapSection, MetaSection,
@@ -24,7 +24,7 @@ fn tile_container_roundtrip() {
     let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -76,7 +76,7 @@ fn tile_container_deterministic_output() {
     header.created_timestamp = 0;
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -125,7 +125,7 @@ fn tile_container_unknown_section_is_ignored() {
     let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -170,7 +170,7 @@ fn tile_container_crc_failure_detected() {
     let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -221,8 +221,18 @@ fn tile_container_crc_failure_detected() {
 #[test]
 fn tile_container_overlap_detected_by_validator() {
     let temp = tempdir().expect("tempdir");
-    let manifest = world::schema::ProjectManifest::default();
-    let layout = create_project(temp.path(), &manifest).expect("create project");
+    let project_manifest = world::schema::ProjectManifest::default();
+    let project_layout = create_project(temp.path(), &project_manifest).expect("create project");
+    let world_manifest = WorldManifest {
+        world_id: "world_0".to_string(),
+        regions: vec![RegionManifest {
+            region_id: "region_0".to_string(),
+            name: "Region 0".to_string(),
+            bounds: RegionBounds::new(0, 0, 1, 1),
+        }],
+        ..WorldManifest::default()
+    };
+    let world_layout = create_world(&project_layout, &world_manifest).expect("create world");
 
     let region = "region_0";
     let tile_id = TileId {
@@ -233,7 +243,7 @@ fn tile_container_overlap_detected_by_validator() {
     let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -256,7 +266,7 @@ fn tile_container_overlap_detected_by_validator() {
         decoded: encode_prop(&prop).expect("encode prop"),
     });
 
-    let path = tile_container_path(&layout, region, tile_id);
+    let path = tile_container_path(&world_layout, region, tile_id);
     writer.write(&path, header).expect("write tile");
 
     let reader = TileContainerReader::open(&path).expect("read tile");
@@ -283,8 +293,18 @@ fn tile_container_overlap_detected_by_validator() {
 #[test]
 fn tile_container_bounds_detected_by_validator() {
     let temp = tempdir().expect("tempdir");
-    let manifest = world::schema::ProjectManifest::default();
-    let layout = create_project(temp.path(), &manifest).expect("create project");
+    let project_manifest = world::schema::ProjectManifest::default();
+    let project_layout = create_project(temp.path(), &project_manifest).expect("create project");
+    let world_manifest = WorldManifest {
+        world_id: "world_0".to_string(),
+        regions: vec![RegionManifest {
+            region_id: "region_0".to_string(),
+            name: "Region 0".to_string(),
+            bounds: RegionBounds::new(0, 0, 1, 1),
+        }],
+        ..WorldManifest::default()
+    };
+    let world_layout = create_world(&project_layout, &world_manifest).expect("create world");
 
     let region = "region_0";
     let tile_id = TileId {
@@ -295,7 +315,7 @@ fn tile_container_bounds_detected_by_validator() {
     let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
 
     let meta = MetaSection {
-        format_version: WORLD_SCHEMA_VERSION,
+        format_version: WORLD_FORMAT_VERSION,
         tile_id,
         region_hash,
         created_timestamp: 0,
@@ -318,7 +338,7 @@ fn tile_container_bounds_detected_by_validator() {
         decoded: encode_prop(&prop).expect("encode prop"),
     });
 
-    let path = tile_container_path(&layout, region, tile_id);
+    let path = tile_container_path(&world_layout, region, tile_id);
     writer.write(&path, header).expect("write tile");
 
     let reader = TileContainerReader::open(&path).expect("read tile");

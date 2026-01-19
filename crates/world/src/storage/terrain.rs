@@ -1,5 +1,5 @@
-use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{ensure_tile_dir, tile_dir, Layout};
+use crate::schema::WORLD_FORMAT_VERSION;
+use crate::storage::{ensure_tile_dir, tile_dir, WorldLayout};
 use anyhow::Context;
 use foundation::ids::TileId;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ pub struct TerrainHeight {
 impl TerrainHeight {
     pub fn new(size: u16, samples: Vec<f32>) -> Self {
         Self {
-            format_version: WORLD_SCHEMA_VERSION,
+            format_version: WORLD_FORMAT_VERSION,
             size,
             samples,
         }
@@ -25,7 +25,7 @@ impl TerrainHeight {
 }
 
 pub fn write_terrain_height(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     height: &TerrainHeight,
@@ -38,7 +38,7 @@ pub fn write_terrain_height(
 }
 
 pub fn read_terrain_height(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
 ) -> anyhow::Result<TerrainHeight> {

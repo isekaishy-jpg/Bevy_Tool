@@ -1,5 +1,5 @@
-use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{ensure_tile_dir, tile_dir, Layout};
+use crate::schema::WORLD_FORMAT_VERSION;
+use crate::storage::{ensure_tile_dir, tile_dir, WorldLayout};
 use anyhow::Context;
 use foundation::ids::TileId;
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ pub struct LiquidsMask {
 impl LiquidsMask {
     pub fn new(size: u16, mask: Vec<u8>) -> Self {
         Self {
-            format_version: WORLD_SCHEMA_VERSION,
+            format_version: WORLD_FORMAT_VERSION,
             size,
             mask,
         }
@@ -34,7 +34,7 @@ pub struct LiquidsMeta {
 impl LiquidsMeta {
     pub fn new(bodies: Vec<LiquidBody>) -> Self {
         Self {
-            format_version: WORLD_SCHEMA_VERSION,
+            format_version: WORLD_FORMAT_VERSION,
             bodies,
         }
     }
@@ -56,7 +56,7 @@ pub enum LiquidKind {
 }
 
 pub fn write_liquids_mask(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     mask: &LiquidsMask,
@@ -69,7 +69,7 @@ pub fn write_liquids_mask(
 }
 
 pub fn read_liquids_mask(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
 ) -> anyhow::Result<LiquidsMask> {
@@ -80,7 +80,7 @@ pub fn read_liquids_mask(
 }
 
 pub fn write_liquids_meta(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     meta: &LiquidsMeta,
@@ -93,7 +93,7 @@ pub fn write_liquids_meta(
 }
 
 pub fn read_liquids_meta(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
 ) -> anyhow::Result<LiquidsMeta> {

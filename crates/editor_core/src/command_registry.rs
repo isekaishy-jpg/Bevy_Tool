@@ -2,7 +2,7 @@
 
 use bevy::log::{info, warn};
 use bevy::prelude::*;
-use world::storage::write_manifest;
+use world::storage::{write_project_manifest, write_world_manifest};
 
 use crate::commands::CommandStack;
 use crate::project::ProjectState;
@@ -155,17 +155,36 @@ pub fn handle_command_invoked(
 ) {
     match event.event().id {
         CommandId::Save | CommandId::SaveAllDirty => {
-            if let Some(project) = &project_state.current {
-                if let Err(err) = write_manifest(&project.root, &project.manifest) {
-                    project_state.last_error = Some(format!("save failed: {err}"));
-                    warn!("save failed: {err}");
-                } else {
-                    info!("saved project {:?}", project.root);
-                }
-            } else {
+            let Some(project) = &project_state.current else {
                 project_state.last_error = Some("save failed: no project open".to_string());
                 warn!("save failed: no project open");
+                return;
+            };
+
+            if let Err(err) = write_project_manifest(&project.root, &project.manifest) {
+                project_state.last_error = Some(format!("save failed: {err}"));
+                warn!("save failed: {err}");
+                return;
             }
+
+            let worlds_dir = project.root.join(&project.manifest.worlds_dir);
+            let save_all = matches!(event.event().id, CommandId::SaveAllDirty);
+            let worlds = if save_all {
+                project.worlds.iter().collect::<Vec<_>>()
+            } else {
+                project.current_world().into_iter().collect::<Vec<_>>()
+            };
+
+            for world in worlds {
+                let world_root = worlds_dir.join(&world.manifest.world_id);
+                if let Err(err) = write_world_manifest(&world_root, &world.manifest) {
+                    project_state.last_error = Some(format!("save failed: {err}"));
+                    warn!("save failed: {err}");
+                    return;
+                }
+            }
+
+            info!("saved project {:?}", project.root);
         }
         CommandId::Undo => {
             if command_stack.undo().is_none() {

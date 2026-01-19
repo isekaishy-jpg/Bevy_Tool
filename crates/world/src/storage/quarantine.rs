@@ -1,4 +1,4 @@
-use crate::storage::{tile_container_path, tile_dir, Layout};
+use crate::storage::{tile_container_path, tile_dir, WorldLayout};
 use anyhow::Context;
 use foundation::ids::TileId;
 use std::fs;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn quarantine_tile_dir(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     reason: &str,
@@ -27,7 +27,7 @@ pub fn quarantine_tile_dir(
 }
 
 pub fn quarantine_tile_file(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     reason: &str,
@@ -48,7 +48,7 @@ pub fn quarantine_tile_file(
 }
 
 fn quarantine_path(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
     suffix: &str,

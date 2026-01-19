@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use foundation::ids::TileId;
 
+use crate::schema::{ProjectManifest, RegionManifest, WorldManifest};
 use crate::tile_container::{
     encode_hmap, encode_liqd, encode_meta, encode_prop, TileContainerHeader, TileContainerWriter,
     TileSectionPayload, TileSectionTag, DEFAULT_ALIGNMENT,
@@ -20,17 +21,33 @@ pub use liquids::{
     read_liquids_mask, read_liquids_meta, write_liquids_mask, write_liquids_meta, LiquidBody,
     LiquidKind, LiquidsMask, LiquidsMeta,
 };
-pub use manifest::{read_manifest, write_manifest, MANIFEST_FILE};
+pub use manifest::{
+    read_project_manifest, read_world_manifest, write_project_manifest, write_world_manifest,
+    PROJECT_MANIFEST_FILE, WORLD_MANIFEST_FILE,
+};
 pub use props::{read_props_instances, write_props_instances, PropInstance, PropsInstances};
 pub use quarantine::{quarantine_tile_dir, quarantine_tile_file};
 pub use terrain::{read_terrain_height, write_terrain_height, TerrainHeight};
 pub use tile_meta::{read_tile_meta, write_tile_meta, TileMeta};
 
+const EDITOR_DIR_NAME: &str = ".editor";
+
 #[derive(Debug, Clone)]
-pub struct Layout {
+pub struct ProjectLayout {
     pub project_root: PathBuf,
-    pub tiles_dir: PathBuf,
+    pub editor_dir: PathBuf,
+    pub worlds_dir: PathBuf,
+    pub assets_dir: PathBuf,
+    pub exports_dir: PathBuf,
     pub cache_dir: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorldLayout {
+    pub project_root: PathBuf,
+    pub world_id: String,
+    pub world_root: PathBuf,
+    pub regions_dir: PathBuf,
     pub quarantine_dir: PathBuf,
 }
 
@@ -43,47 +60,92 @@ pub struct TileStub {
     pub props: PropsInstances,
 }
 
-pub fn default_layout(project_root: &Path) -> Layout {
-    let tiles_dir = project_root.join("tiles");
-    Layout {
+pub fn project_layout(project_root: &Path, manifest: &ProjectManifest) -> ProjectLayout {
+    ProjectLayout {
         project_root: project_root.to_path_buf(),
-        tiles_dir: tiles_dir.clone(),
-        cache_dir: project_root.join(".cache"),
-        quarantine_dir: tiles_dir.join("_quarantine"),
+        editor_dir: project_root.join(EDITOR_DIR_NAME),
+        worlds_dir: project_root.join(&manifest.worlds_dir),
+        assets_dir: project_root.join(&manifest.assets_dir),
+        exports_dir: project_root.join(&manifest.exports_dir),
+        cache_dir: project_root.join(&manifest.cache_dir),
+    }
+}
+
+pub fn world_layout(project_layout: &ProjectLayout, world_id: &str) -> WorldLayout {
+    let world_root = project_layout.worlds_dir.join(world_id);
+    let regions_dir = world_root.join("regions");
+    WorldLayout {
+        project_root: project_layout.project_root.clone(),
+        world_id: world_id.to_string(),
+        world_root: world_root.clone(),
+        regions_dir: regions_dir.clone(),
+        quarantine_dir: regions_dir.join("_quarantine"),
     }
 }
 
 pub fn create_project(
     project_root: &Path,
-    manifest: &crate::schema::ProjectManifest,
-) -> anyhow::Result<Layout> {
-    let layout = default_layout(project_root);
-    write_manifest(&layout.project_root, manifest)?;
-    fs::create_dir_all(&layout.tiles_dir)
-        .with_context(|| format!("create tiles dir {:?}", layout.tiles_dir))?;
+    manifest: &ProjectManifest,
+) -> anyhow::Result<ProjectLayout> {
+    let layout = project_layout(project_root, manifest);
+    write_project_manifest(&layout.project_root, manifest)?;
+    fs::create_dir_all(&layout.editor_dir)
+        .with_context(|| format!("create editor dir {:?}", layout.editor_dir))?;
+    fs::create_dir_all(&layout.worlds_dir)
+        .with_context(|| format!("create worlds dir {:?}", layout.worlds_dir))?;
+    fs::create_dir_all(&layout.assets_dir)
+        .with_context(|| format!("create assets dir {:?}", layout.assets_dir))?;
+    fs::create_dir_all(&layout.exports_dir)
+        .with_context(|| format!("create exports dir {:?}", layout.exports_dir))?;
     fs::create_dir_all(&layout.cache_dir)
         .with_context(|| format!("create cache dir {:?}", layout.cache_dir))?;
-    fs::create_dir_all(&layout.quarantine_dir)
-        .with_context(|| format!("create quarantine dir {:?}", layout.quarantine_dir))?;
     Ok(layout)
 }
 
-pub fn tile_container_path(layout: &Layout, region: &str, tile_id: TileId) -> PathBuf {
-    layout
-        .tiles_dir
-        .join(region)
-        .join(format!("x{}_y{}.tile", tile_id.coord.x, tile_id.coord.y))
+pub fn create_world(
+    project_layout: &ProjectLayout,
+    manifest: &WorldManifest,
+) -> anyhow::Result<WorldLayout> {
+    let layout = world_layout(project_layout, &manifest.world_id);
+    write_world_manifest(&layout.world_root, manifest)?;
+    fs::create_dir_all(&layout.regions_dir)
+        .with_context(|| format!("create regions dir {:?}", layout.regions_dir))?;
+    fs::create_dir_all(&layout.quarantine_dir)
+        .with_context(|| format!("create quarantine dir {:?}", layout.quarantine_dir))?;
+    for region in &manifest.regions {
+        ensure_region_tiles_dir(&layout, &region.region_id)?;
+    }
+    Ok(layout)
 }
 
-pub(crate) fn tile_dir(layout: &Layout, region: &str, tile_id: TileId) -> PathBuf {
-    layout
-        .tiles_dir
-        .join(region)
-        .join(format!("{}_{}", tile_id.coord.x, tile_id.coord.y))
+pub fn ensure_region_tiles_dir(layout: &WorldLayout, region_id: &str) -> anyhow::Result<PathBuf> {
+    let dir = region_tiles_dir(layout, region_id);
+    fs::create_dir_all(&dir).with_context(|| format!("create region tiles dir {:?}", dir))?;
+    Ok(dir)
+}
+
+pub fn create_region(layout: &WorldLayout, region: &RegionManifest) -> anyhow::Result<PathBuf> {
+    ensure_region_tiles_dir(layout, &region.region_id)
+}
+
+pub fn region_root(layout: &WorldLayout, region_id: &str) -> PathBuf {
+    layout.regions_dir.join(region_id)
+}
+
+pub fn region_tiles_dir(layout: &WorldLayout, region_id: &str) -> PathBuf {
+    region_root(layout, region_id).join("tiles")
+}
+
+pub fn tile_container_path(layout: &WorldLayout, region: &str, tile_id: TileId) -> PathBuf {
+    region_tiles_dir(layout, region).join(format!("x{}_y{}.tile", tile_id.coord.x, tile_id.coord.y))
+}
+
+pub(crate) fn tile_dir(layout: &WorldLayout, region: &str, tile_id: TileId) -> PathBuf {
+    region_tiles_dir(layout, region).join(format!("{}_{}", tile_id.coord.x, tile_id.coord.y))
 }
 
 pub(crate) fn ensure_tile_dir(
-    layout: &Layout,
+    layout: &WorldLayout,
     region: &str,
     tile_id: TileId,
 ) -> anyhow::Result<PathBuf> {
@@ -93,12 +155,12 @@ pub(crate) fn ensure_tile_dir(
 }
 
 pub fn save_tile_stub(
-    layout: &Layout,
+    layout: &WorldLayout,
+    manifest: &WorldManifest,
     region: &str,
     tile_id: TileId,
     stub: &TileStub,
 ) -> anyhow::Result<()> {
-    let manifest = read_manifest(&layout.project_root)?;
     let region_hash = crate::tile_container::world_spec_hash::hash_region(region);
     let meta = crate::tile_container::MetaSection {
         format_version: stub.meta.format_version,
@@ -178,8 +240,7 @@ pub fn save_tile_stub(
         decoded: encode_prop(&prop)?,
     });
 
-    let spec_hash =
-        crate::tile_container::world_spec_hash::hash_world_spec_from_manifest(&manifest);
+    let spec_hash = crate::tile_container::world_spec_hash::hash_world_spec_from_manifest(manifest);
     let mut header =
         TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
     header.created_timestamp = meta.created_timestamp;
@@ -188,7 +249,11 @@ pub fn save_tile_stub(
     Ok(())
 }
 
-pub fn load_tile_stub(layout: &Layout, region: &str, tile_id: TileId) -> anyhow::Result<TileStub> {
+pub fn load_tile_stub(
+    layout: &WorldLayout,
+    region: &str,
+    tile_id: TileId,
+) -> anyhow::Result<TileStub> {
     let path = tile_container_path(layout, region, tile_id);
     let reader = crate::tile_container::TileContainerReader::open(&path)?;
     let meta = crate::tile_container::decode_meta(&reader.decode_section(TileSectionTag::META)?)?;
