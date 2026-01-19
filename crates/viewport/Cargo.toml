@@ -8,3 +8,7 @@ license.workspace = true
 bevy = { workspace = true }
 
 foundation = { path = "../foundation" }
+
+[features]
+default = []
+custom_viewport = []

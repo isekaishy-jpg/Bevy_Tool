@@ -16,6 +16,20 @@
 - `exporter`: artifact build pipeline
 - `preview`: artifact-only preview runtime
 
+## Dependency direction
+Keep dependencies flowing toward lower-level crates to avoid cycles:
+- `foundation`: no project crate dependencies
+- `world` -> `foundation`
+- `runtime` -> `world`, `foundation`
+- `viewport` -> `foundation`
+- `editor_core` -> `world`, `runtime`, `foundation`
+- `editor_ui` -> `editor_core`
+- `exporter` -> `world`, `runtime`, `foundation`
+- `preview` -> `runtime`, `viewport`
+- `apps/editor` wires everything together
+
+Code review enforces these directions; exceptions must be documented.
+
 ## Plugin composition
 - `apps/editor` constructs Bevy `App`
 - `editor_ui` registers UI systems

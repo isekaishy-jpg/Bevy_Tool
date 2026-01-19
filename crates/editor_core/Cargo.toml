@@ -10,3 +10,8 @@ bevy = { workspace = true }
 foundation = { path = "../foundation" }
 world = { path = "../world" }
 runtime = { path = "../runtime" }
+
+[features]
+default = []
+dev = []
+profiling = []

@@ -13,3 +13,9 @@ runtime = { path = "../../crates/runtime" }
 editor_core = { path = "../../crates/editor_core" }
 editor_ui = { path = "../../crates/editor_ui" }
 viewport = { path = "../../crates/viewport" }
+
+[features]
+default = []
+dev = ["editor_core/dev", "editor_ui/dev"]
+profiling = ["editor_core/profiling"]
+custom_viewport = ["viewport/custom_viewport"]
