@@ -21,8 +21,8 @@
 - [x] (Optional) Command palette
 
 ## Milestone 03.4 - Logs and diagnostics
-- [ ] Log panel with filter/search
-- [ ] Copy diagnostics bundle
+- [x] Log panel with filter/search
+- [x] Copy diagnostics bundle
 
 ## Milestone 03.5 - Autosave and crash recovery
 - [ ] Autosave schedule

@@ -13,6 +13,7 @@ impl Plugin for EditorUiPlugin {
             .init_resource::<panels::DockLayout>()
             .init_resource::<panels::ProjectPanelState>()
             .init_resource::<panels::CommandPaletteState>()
+            .init_resource::<panels::LogPanelState>()
             .add_systems(EguiPrimaryContextPass, panels::draw_root_panel);
     }
 }

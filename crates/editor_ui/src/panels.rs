@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use editor_core::command_registry::CommandRegistry;
 use editor_core::editor_state::ProjectEditorStateResource;
+use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
 use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
@@ -11,8 +12,10 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 use serde::{Deserialize, Serialize};
 
 pub mod command_palette;
+pub mod logs;
 pub mod project;
 pub use command_palette::CommandPaletteState;
+pub use logs::LogPanelState;
 pub use project::ProjectPanelState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -70,8 +73,11 @@ impl Default for DockLayout {
 
 struct EditorTabViewer<'a> {
     project_state: &'a ProjectState,
+    log_buffer: Option<&'a LogBuffer>,
+    config: &'a EditorConfig,
     prefs: &'a mut EditorPrefs,
     project_ui: &'a mut ProjectPanelState,
+    log_ui: &'a mut LogPanelState,
 }
 
 impl<'a> TabViewer for EditorTabViewer<'a> {
@@ -113,9 +119,13 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
                 project::draw_project_panel(ui, self.project_ui, self.project_state, self.prefs);
             }
             PanelId::Console => {
-                ui.heading("Console");
-                ui.separator();
-                ui.label("Logs and diagnostics pending.");
+                logs::draw_log_panel(
+                    ui,
+                    self.log_ui,
+                    self.log_buffer,
+                    self.project_state,
+                    self.config,
+                );
             }
         }
     }
@@ -140,11 +150,13 @@ pub fn draw_root_panel(
     config: Res<EditorConfig>,
     registry: Res<CommandRegistry>,
     project_state: Res<ProjectState>,
+    log_buffer: Option<Res<LogBuffer>>,
     mut prefs: ResMut<EditorPrefs>,
     mut project_ui: ResMut<ProjectPanelState>,
     mut palette_state: ResMut<CommandPaletteState>,
     mut dock_layout: ResMut<DockLayout>,
     mut editor_state: ResMut<ProjectEditorStateResource>,
+    mut log_ui: ResMut<LogPanelState>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -219,8 +231,11 @@ pub fn draw_root_panel(
     egui::CentralPanel::default().show(ctx, |ui| {
         let mut viewer = EditorTabViewer {
             project_state: &project_state,
+            log_buffer: log_buffer.as_deref(),
+            config: &config,
             prefs: &mut prefs,
             project_ui: &mut project_ui,
+            log_ui: &mut log_ui,
         };
         let style = Style::from_egui(ui.style().as_ref());
         DockArea::new(&mut dock_layout.dock_state)

@@ -6,6 +6,7 @@ use bevy::prelude::*;
 pub mod command_registry;
 pub mod commands;
 pub mod editor_state;
+pub mod log_capture;
 pub mod prefs;
 pub mod project;
 
