@@ -1,0 +1,15 @@
+[package]
+name = "editor"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+
+foundation = { path = "../../crates/foundation" }
+world = { path = "../../crates/world" }
+runtime = { path = "../../crates/runtime" }
+editor_core = { path = "../../crates/editor_core" }
+editor_ui = { path = "../../crates/editor_ui" }
+viewport = { path = "../../crates/viewport" }

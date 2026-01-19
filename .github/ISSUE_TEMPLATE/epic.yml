@@ -1,0 +1,41 @@
+name: Epic
+description: Track a milestone-sized deliverable with child issues
+labels: ["type:epic"]
+body:
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      description: e.g. M4 Terrain Display v0
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Outcome and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: Explicitly not included.
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: issues
+    attributes:
+      label: Child issues
+      description: Link issues here.
+    validations:
+      required: false

@@ -1,0 +1,19 @@
+name: Tech debt / Refactor
+description: Track maintenance and refactoring work
+labels: ["type:techdebt"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is the issue and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed fix
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
