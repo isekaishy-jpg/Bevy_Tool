@@ -7,8 +7,8 @@ fn main() -> anyhow::Result<()> {
     let mut quarantine = false;
     let mut path: Option<PathBuf> = None;
 
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
+    let args = std::env::args().skip(1);
+    for arg in args {
         match arg.as_str() {
             "--json" => json = true,
             "--quarantine" => quarantine = true,

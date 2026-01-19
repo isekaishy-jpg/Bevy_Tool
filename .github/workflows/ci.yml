@@ -6,25 +6,6 @@ on:
     branches: [ main ]
 
 jobs:
-  checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: install linux deps
-        run: sudo apt-get update && sudo apt-get install -y libwayland-dev libasound2-dev
-      - name: fmt
-        run: cargo fmt --all -- --check
-      - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: test
-        run: cargo test --workspace
-      - name: validate tiles
-        run: cargo run -p world --bin validate_world -- --json crates/world/tests/fixtures/min_project
-
   checks_windows:
     runs-on: windows-latest
     steps:

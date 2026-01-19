@@ -258,13 +258,12 @@ fn validate_tile_container(
     validate_directory(&reader, tile_path, issues);
     validate_sections(&reader, tile_path, issues);
 
-    if quarantine {
-        if issues
+    if quarantine
+        && issues
             .iter()
             .any(|issue| issue.path.as_deref() == Some(tile_path))
-        {
-            let _ = quarantine_tile_file(layout, region, tile_id, "tile validation failed");
-        }
+    {
+        let _ = quarantine_tile_file(layout, region, tile_id, "tile validation failed");
     }
 }
 
@@ -295,10 +294,7 @@ fn validate_directory(
                     .with_path(tile_path.to_path_buf()),
             );
         }
-        let end = entry
-            .offset
-            .checked_add(entry.stored_len)
-            .unwrap_or(u64::MAX);
+        let end = entry.offset.saturating_add(entry.stored_len);
         if end > reader.file_len {
             issues.push(
                 ValidationIssue::new(format!("section {} out of bounds", entry.tag))

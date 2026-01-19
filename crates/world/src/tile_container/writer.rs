@@ -24,6 +24,12 @@ pub struct TileContainerWriter {
     alignment: u64,
 }
 
+impl Default for TileContainerWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TileContainerWriter {
     pub fn new() -> Self {
         Self {
