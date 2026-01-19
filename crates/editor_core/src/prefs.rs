@@ -13,10 +13,12 @@ const MAX_RECENT_PROJECTS: usize = 12;
 const APP_NAME: &str = "BevyTool";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Resource)]
+#[serde(default)]
 pub struct EditorPrefs {
     pub prefs_version: u32,
     pub last_project: Option<String>,
     pub recent_projects: Vec<RecentProject>,
+    pub dock_layout: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +34,7 @@ impl Default for EditorPrefs {
             prefs_version: PREFS_VERSION,
             last_project: None,
             recent_projects: Vec::new(),
+            dock_layout: None,
         }
     }
 }
@@ -127,13 +130,11 @@ fn prefs_dir() -> anyhow::Result<PathBuf> {
             .join("Library")
             .join("Application Support")
             .join(APP_NAME))
+    } else if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
+        Ok(PathBuf::from(xdg).join(APP_NAME))
     } else {
-        if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
-            Ok(PathBuf::from(xdg).join(APP_NAME))
-        } else {
-            let home = env::var("HOME").context("HOME not set")?;
-            Ok(PathBuf::from(home).join(".config").join(APP_NAME))
-        }
+        let home = env::var("HOME").context("HOME not set")?;
+        Ok(PathBuf::from(home).join(".config").join(APP_NAME))
     }
 }
 

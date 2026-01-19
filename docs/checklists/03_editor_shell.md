@@ -7,9 +7,9 @@
 - [x] Per-project vs global preferences
 
 ## Milestone 03.2 - Docking
-- [ ] Dock layout (viewport/outliner/inspector/console)
-- [ ] Persist layout
-- [ ] Reset layout
+- [x] Dock layout (viewport/outliner/inspector/console)
+- [x] Persist layout
+- [x] Reset layout
 
 ## Milestone 03.3 - Command registry
 - [ ] Central registry: name/description/category/hotkey

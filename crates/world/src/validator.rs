@@ -190,6 +190,7 @@ fn parse_tile_filename(name: &str) -> Option<TileId> {
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_tile_container(
     layout: &crate::storage::Layout,
     region: &str,

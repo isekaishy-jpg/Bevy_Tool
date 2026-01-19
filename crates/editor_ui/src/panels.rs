@@ -6,11 +6,12 @@ use editor_core::prefs::EditorPrefs;
 use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
+use serde::{Deserialize, Serialize};
 
 pub mod project;
 pub use project::ProjectPanelState;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PanelId {
     Viewport,
     Assets,
@@ -23,16 +24,11 @@ pub enum PanelId {
 #[derive(Resource)]
 pub struct DockLayout {
     dock_state: DockState<PanelId>,
+    last_saved: Option<String>,
 }
 
 impl DockLayout {
-    fn reset(&mut self) {
-        *self = Self::default();
-    }
-}
-
-impl Default for DockLayout {
-    fn default() -> Self {
+    fn default_state() -> DockState<PanelId> {
         let mut dock_state = DockState::new(vec![PanelId::Viewport]);
         let tree = dock_state.main_surface_mut();
         let [center, _left] = tree.split_left(
@@ -44,7 +40,37 @@ impl Default for DockLayout {
             tree.split_right(center, 0.25, vec![PanelId::Inspector, PanelId::World]);
         let [_center, _bottom] = tree.split_below(center, 0.28, vec![PanelId::Console]);
 
-        Self { dock_state }
+        dock_state
+    }
+
+    fn new_default() -> Self {
+        Self {
+            dock_state: Self::default_state(),
+            last_saved: None,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.dock_state = Self::default_state();
+        self.last_saved = None;
+    }
+}
+
+impl FromWorld for DockLayout {
+    fn from_world(world: &mut World) -> Self {
+        let Some(prefs) = world.get_resource::<EditorPrefs>() else {
+            return Self::new_default();
+        };
+        let Some(layout) = prefs.dock_layout.as_deref() else {
+            return Self::new_default();
+        };
+        match serde_json::from_str::<DockState<PanelId>>(layout) {
+            Ok(dock_state) => Self {
+                dock_state,
+                last_saved: Some(layout.to_string()),
+            },
+            Err(_) => Self::new_default(),
+        }
     }
 }
 
@@ -134,6 +160,7 @@ pub fn draw_root_panel(
             ui.separator();
             if ui.button("Reset Layout").clicked() {
                 dock_layout.reset();
+                prefs.dock_layout = None;
             }
         });
     });
@@ -150,7 +177,19 @@ pub fn draw_root_panel(
             .show_inside(ui, &mut viewer);
     });
 
+    persist_layout(&mut prefs, &mut dock_layout);
     for command in project_ui.pending_commands.drain(..) {
         commands.trigger(command);
     }
+}
+
+fn persist_layout(prefs: &mut EditorPrefs, dock_layout: &mut DockLayout) {
+    let Ok(serialized) = serde_json::to_string(&dock_layout.dock_state) else {
+        return;
+    };
+    if dock_layout.last_saved.as_deref() == Some(&serialized) {
+        return;
+    }
+    dock_layout.last_saved = Some(serialized.clone());
+    prefs.dock_layout = Some(serialized);
 }
