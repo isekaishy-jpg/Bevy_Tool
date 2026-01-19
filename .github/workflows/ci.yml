@@ -15,7 +15,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: install linux deps
-        run: sudo apt-get update && sudo apt-get install -y libwayland-dev
+        run: sudo apt-get update && sudo apt-get install -y libwayland-dev libasound2-dev
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
