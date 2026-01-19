@@ -4,41 +4,41 @@
 Define the authoritative world representation for a WoW-style MMO map editor.
 
 ## Milestone 02.1 - Adopt and document world spec
-- [ ] Write `docs/WORLD_SPEC.md` (or confirm the defaults):
-  - [ ] tile 512m
-  - [ ] 16x16 chunks (32m)
-  - [ ] heightfield 513x513
-  - [ ] weightmap 256x256
-  - [ ] liquids mask 256x256
+- [x] Write `docs/WORLD_SPEC.md` (or confirm the defaults):
+  - [x] tile 512m
+  - [x] 16x16 chunks (32m)
+  - [x] heightfield 513x513
+  - [x] weightmap 256x256
+  - [x] liquids mask 256x256
 
 ## Milestone 02.2 - Stable IDs
-- [ ] TileId, ChunkId, LayerId, InstanceId, AssetId defined in `crates/world`.
-- [ ] Deterministic ordering rules documented.
-- [ ] No Bevy Entity IDs persisted.
+- [x] TileId, ChunkId, LayerId, InstanceId, AssetId defined in `crates/world`.
+- [x] Deterministic ordering rules documented.
+- [x] No Bevy Entity IDs persisted.
 
 ## Milestone 02.3 - Layer registry
-- [ ] Terrain layer
-- [ ] Liquids layer
-- [ ] Props layer
-- [ ] Weightmap/material layer
-- [ ] Spline layer
-- [ ] Metadata layer
+- [x] Terrain layer
+- [x] Liquids layer
+- [x] Props layer
+- [x] Weightmap/material layer
+- [x] Spline layer
+- [x] Metadata layer
 
 ## Milestone 02.4 - Persistence layout
-- [ ] Define and document `docs/WORLD_FORMAT.md`.
-- [ ] Implement load/save stubs for:
-  - [ ] project manifest
-  - [ ] tile meta
-  - [ ] terrain height
-  - [ ] liquids mask/meta
-  - [ ] props instances
+- [x] Define and document `docs/WORLD_FORMAT.md`.
+- [x] Implement load/save stubs for:
+  - [x] project manifest
+  - [x] tile meta
+  - [x] terrain height
+  - [x] liquids mask/meta
+  - [x] props instances
 
 ## Milestone 02.5 - Migrations + validation
-- [ ] Format versioning.
-- [ ] Migration pipeline exists (even if no migrations yet).
-- [ ] Validator can scan project and report errors.
-- [ ] Corrupt tile quarantine policy implemented.
+- [x] Format versioning.
+- [x] Migration pipeline exists (even if no migrations yet).
+- [x] Validator can scan project and report errors.
+- [x] Corrupt tile quarantine policy implemented.
 
 ## Acceptance
-- Create -> save -> reload is lossless for stubs.
-- Corrupt tile does not crash the editor.
+- [x] Create -> save -> reload is lossless for stubs.
+- [x] Corrupt tile does not crash the editor.
