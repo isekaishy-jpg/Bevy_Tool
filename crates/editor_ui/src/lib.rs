@@ -12,6 +12,7 @@ impl Plugin for EditorUiPlugin {
         app.add_plugins(EguiPlugin::default())
             .init_resource::<panels::DockLayout>()
             .init_resource::<panels::ProjectPanelState>()
+            .init_resource::<panels::CommandPaletteState>()
             .add_systems(EguiPrimaryContextPass, panels::draw_root_panel);
     }
 }

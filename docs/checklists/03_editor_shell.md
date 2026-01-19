@@ -12,10 +12,10 @@
 - [x] Reset layout
 
 ## Milestone 03.3 - Command registry
-- [ ] Central registry: name/description/category/hotkey
-- [ ] Conflict detection
-- [ ] Commands: save, save-all-dirty, undo/redo, focus selection, toggle overlays
-- [ ] (Optional) Command palette
+- [x] Central registry: name/description/category/hotkey
+- [x] Conflict detection
+- [x] Commands: save, save-all-dirty, undo/redo, focus selection, toggle overlays
+- [x] (Optional) Command palette
 
 ## Milestone 03.4 - Logs and diagnostics
 - [ ] Log panel with filter/search

@@ -3,6 +3,7 @@
 use bevy::log::warn;
 use bevy::prelude::*;
 
+pub mod command_registry;
 pub mod commands;
 pub mod prefs;
 pub mod project;
@@ -31,8 +32,14 @@ impl Plugin for EditorCorePlugin {
 
         app.init_resource::<EditorConfig>();
         app.init_resource::<project::ProjectState>();
+        app.init_resource::<commands::CommandStack>();
+        app.init_resource::<command_registry::OverlayState>();
+        app.init_resource::<command_registry::FocusSelectionRequest>();
+        app.insert_resource(command_registry::CommandRegistry::new_default());
         app.insert_resource(prefs);
         app.add_observer(project::apply_project_commands);
+        app.add_observer(command_registry::handle_command_invoked);
+        app.add_systems(Startup, command_registry::validate_command_registry);
         app.add_systems(Update, prefs::save_prefs_on_change);
     }
 }

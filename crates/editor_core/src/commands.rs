@@ -1,6 +1,8 @@
 //! Command stack (v0). Expand into delta-based terrain/liquid edits.
 
-#[derive(Debug)]
+use bevy::prelude::Resource;
+
+#[derive(Debug, Clone)]
 pub enum Command {
     // TODO: TerrainStroke { ... }
     // TODO: LiquidsPaint { ... }
@@ -8,7 +10,7 @@ pub enum Command {
     Noop,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct CommandStack {
     undo: Vec<Command>,
     redo: Vec<Command>,
@@ -26,5 +28,17 @@ impl CommandStack {
 
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
+    }
+
+    pub fn undo(&mut self) -> Option<Command> {
+        let cmd = self.undo.pop()?;
+        self.redo.push(cmd.clone());
+        Some(cmd)
+    }
+
+    pub fn redo(&mut self) -> Option<Command> {
+        let cmd = self.redo.pop()?;
+        self.undo.push(cmd.clone());
+        Some(cmd)
     }
 }

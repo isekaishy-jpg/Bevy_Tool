@@ -2,13 +2,16 @@
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use editor_core::command_registry::CommandRegistry;
 use editor_core::prefs::EditorPrefs;
 use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 use serde::{Deserialize, Serialize};
 
+pub mod command_palette;
 pub mod project;
+pub use command_palette::CommandPaletteState;
 pub use project::ProjectPanelState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -139,18 +142,23 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_root_panel(
     mut contexts: EguiContexts,
     mut commands: Commands,
     config: Res<EditorConfig>,
+    registry: Res<CommandRegistry>,
     project_state: Res<ProjectState>,
     mut prefs: ResMut<EditorPrefs>,
     mut project_ui: ResMut<ProjectPanelState>,
+    mut palette_state: ResMut<CommandPaletteState>,
     mut dock_layout: ResMut<DockLayout>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
+
+    command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
 
     egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
@@ -181,6 +189,8 @@ pub fn draw_root_panel(
     for command in project_ui.pending_commands.drain(..) {
         commands.trigger(command);
     }
+
+    command_palette::draw_command_palette(ctx, &mut palette_state, &registry, &mut commands);
 }
 
 fn persist_layout(prefs: &mut EditorPrefs, dock_layout: &mut DockLayout) {
