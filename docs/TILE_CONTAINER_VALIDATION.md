@@ -1,55 +1,66 @@
-# Tile Container Validation Contract
+# Tile Container Validation
 
-This document defines the minimum validation checks and required error reporting for `.tile` files.
+This document defines the validator contract for `.tile` containers.
 
-## Validator modes
-- **Scan mode:** validate every tile under a directory; report all failures.
-- **Single-tile mode:** validate one tile; print precise diagnostics.
-- **Machine-readable output:** optional JSON output for CI/pipelines.
+## Header validation
 
-## Required checks
+- magic must be "TILE"
+- container_version must be supported
+- endianness must be little
+- section_count must be <= 256
+- section_dir_offset must be >= header size and within file bounds
+- world_spec_hash must match the active project spec
 
-### 1) Header
-- magic matches expected value
-- container_version supported
-- endianness == little
-- section_count is within a sane cap (recommend <= 256)
-- section_dir_offset within file bounds
-- tile_id matches filename (region/x/y)
+## Directory validation
 
-### 2) Directory
-For each directory entry:
-- tag is valid FourCC (or explicitly allowed)
-- offset and stored_len within file bounds
-- stored_len > 0 unless explicitly allowed
-- decoded_len >= 0 (and equals stored_len for raw)
+- stored_len must be > 0
+- offset + stored_len must be within file bounds
+- payload offsets must not overlap
+- payload offsets must not overlap the directory region
+- payload alignment must match the container alignment policy
+- tags must be ASCII FourCC
 
-Global directory checks:
-- no overlaps between payload ranges
-- optional: payload offsets satisfy alignment policy
+## Payload integrity
 
-### 3) Payload integrity
-- crc32 of stored bytes matches directory entry
+- crc32 must match the stored bytes
+- unknown section tags/versions are skipped safely
+- unsupported codecs fail validation for that section
 
-Policy on failure:
-- Section CRC failure invalidates that layer; tile can still be partially loaded.
-- Header or directory failure invalidates the entire tile.
+## Section-level schema checks (v1)
 
-### 4) Section-level schema checks (v1)
-- META present
-- If HMAP present: width/height and encoding valid
-- If WMAP present: width/height and layer_count valid
-- If LIQD present: width/height and encodings valid
+- META must be present
+- HMAP dimensions must match world spec (if HMAP present)
+- WMAP dimensions must match world spec (if WMAP present)
+- LIQD dimensions must match world spec (if LIQD present)
+- HMAP values must be finite and within the configured range
+- LIQD bodies must be finite and mask indices valid
+- PROP transforms must be finite
 
-## Error reporting requirements
-Each error must include:
-- tile_id (region/x/y)
-- failing rule name
-- relevant tag (if section-related)
-- offset/len (if applicable)
-- suggested action (e.g., "re-export tile" or "delete corrupt tile")
+## Quarantine behavior
 
-## Exit codes
-- 0: all tiles valid
-- 1: one or more tiles invalid
-- 2: validator internal error
+When quarantine mode is enabled, tiles that fail validation are moved to:
+
+```
+tiles/_quarantine/<timestamp>/<region>/x####_y####.tile
+```
+
+Triggers:
+- header read failures (bad magic, invalid directory bounds)
+- directory validation failures
+- CRC failures or schema validation failures
+
+Quarantine preserves the original region and filename. Users may restore a tile by moving it back
+after manual repair.
+
+## Validator outputs
+
+- Human-readable: `ValidationIssue` entries with a message and optional path.
+- Machine-readable: JSON array of issues via `validate_project_json(...)`.
+
+## CLI
+
+```
+cargo run -p world --bin validate_world -- <project_root>
+cargo run -p world --bin validate_world -- --json <project_root>
+cargo run -p world --bin validate_world -- --quarantine <project_root>
+```

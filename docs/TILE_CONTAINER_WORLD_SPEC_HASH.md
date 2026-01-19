@@ -1,22 +1,32 @@
-# world_spec_hash
+# Tile Container World Spec Hash
 
-## Purpose
-Tiles must not be mixed across incompatible world specs (tile size, resolutions, encodings).
-To prevent subtle corruption, each tile stores a `world_spec_hash` in the container header
-(and optionally in META).
+Each `.tile` header stores `world_spec_hash` to detect mismatches between a tile and the active
+project/world spec. The hash is not a security feature; it is a quick consistency check.
 
-## Inputs to the hash (v1)
-Include:
-- `tile_size_m` (e.g., 512)
-- `chunks_per_tile` (e.g., 16)
-- `heightfield_resolution` (e.g., 513x513)
-- `weightmap_resolution` (e.g., 256x256)
-- `liquids_mask_resolution` (e.g., 256x256)
-- Section encodings (e.g., HMAP encoding type)
+## Hash algorithm
 
-## Policy
-- On load: if `tile.world_spec_hash != project.world_spec_hash`, reject the tile with a clear diagnostic.
-- On save: always write the project world_spec_hash.
+- Algorithm: FNV-1a 64-bit
+- Input: ASCII string with stable key ordering
 
-## Implementation note
-Any stable 64-bit hash is acceptable (e.g., xxhash64). The hash function and inputs must be documented.
+Input string format:
+
+```
+tile_size_meters=<f32>;
+chunks_per_tile=<u16>;
+heightfield_samples=<u16>;
+weightmap_resolution=<u16>;
+liquids_resolution=<u16>
+```
+
+## Defaults
+
+The current defaults match `docs/WORLD_SPEC.md`:
+- tile_size_meters = 512.0
+- chunks_per_tile = 16
+- heightfield_samples = 513
+- weightmap_resolution = 256
+- liquids_resolution = 256
+
+## Region hash
+
+The header also stores `region_hash` as FNV-1a 64-bit of the region name string.

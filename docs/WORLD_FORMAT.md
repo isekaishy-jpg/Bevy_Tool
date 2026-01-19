@@ -9,19 +9,19 @@ This is the authoring/source format. Runtime artifacts are produced by the expor
   project.toml
   tiles/
     <region>/
-      <x>_<y>/
-        tile.meta.json
-        terrain.height.bin
-        terrain.weightmap.bin
-        liquids.mask.bin
-        liquids.meta.json
-        props.instances.bin
-        splines.bin
+      x####_y####.tile
+    _quarantine/
+      <timestamp>/
+        <region>/
+          x####_y####.tile
 ```
 
 ## Versioning
 - `project.toml` contains `format_version`
-- Each per-tile file is assumed to match the project format version
+- Each `.tile` contains:
+  - container version in the header
+  - section versions inside each payload
+  - world_spec_hash to detect spec mismatches
 
 ## Deterministic ordering
 - Tiles are ordered by region, then tile coord (x, y)
@@ -32,20 +32,22 @@ This is the authoring/source format. Runtime artifacts are produced by the expor
 - Bevy Entity IDs are never persisted
 
 ## Atomic writes
-- Write to `*.tmp` then rename
-- Never partially overwrite an existing file
+- Write to `*.tile.tmp`, sync, then rename to `*.tile`
+- Existing tiles are rotated to `*.tile.bak` before replace
+- Never partially overwrite an existing tile
 
 ## Validation
 Validator checks:
-- missing files
-- version mismatch
-- corrupt headers
-- out-of-range values
+- container header + directory sanity
+- section CRCs and versioned payload decoding
+- required sections (META) and dimension checks
+- out-of-range values for terrain/liquids/props
+
+See:
+- `docs/TILE_CONTAINER_FORMAT.md`
+- `docs/TILE_CONTAINER_SECTIONS.md`
+- `docs/TILE_CONTAINER_VALIDATION.md`
+- `docs/TILE_CONTAINER_WORLD_SPEC_HASH.md`
 
 ## Notes
-- Early stubs may store JSON payloads in `*.bin` files until binary formats are defined.
-- Binary formats should start with a small header:
-  - magic
-  - version
-  - dimensions
-  - checksum (optional)
+- Legacy per-layer `*.bin`/`*.json` stubs are deprecated in favor of `.tile`.

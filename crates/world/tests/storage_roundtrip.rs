@@ -1,10 +1,12 @@
 use std::fs;
+use std::path::Path;
 
 use tempfile::tempdir;
 use world::schema::{ProjectManifest, WORLD_SCHEMA_VERSION};
 use world::storage::{
-    create_project, load_tile_stub, read_manifest, save_tile_stub, LiquidBody, LiquidKind,
-    LiquidsMask, LiquidsMeta, PropInstance, PropsInstances, TerrainHeight, TileMeta, TileStub,
+    create_project, load_tile_stub, read_manifest, save_tile_stub, tile_container_path, LiquidBody,
+    LiquidKind, LiquidsMask, LiquidsMeta, PropInstance, PropsInstances, TerrainHeight, TileMeta,
+    TileStub,
 };
 use world::{AssetId, InstanceId, TileCoord, TileId};
 
@@ -89,24 +91,44 @@ fn validator_quarantines_corrupt_tile() {
     let tile_id = TileId {
         coord: TileCoord { x: 0, y: 0 },
     };
-    let tile_dir = layout
-        .tiles_dir
-        .join("region_0")
-        .join(format!("{}_{}", tile_id.coord.x, tile_id.coord.y));
-    fs::create_dir_all(&tile_dir).expect("create tile dir");
-    fs::write(tile_dir.join("tile.meta.json"), "not-json").expect("write corrupt meta");
+    let tile_path = tile_container_path(&layout, "region_0", tile_id);
+    if let Some(parent) = tile_path.parent() {
+        fs::create_dir_all(parent).expect("create tile dir");
+    }
+    fs::write(&tile_path, b"not-a-tile").expect("write corrupt tile");
 
     let issues = world::validator::validate_project_and_quarantine(temp.path());
     assert!(
         issues
             .iter()
-            .any(|issue| issue.message.contains("tile meta read failed")),
-        "expected tile meta read failure"
+            .any(|issue| issue.message.contains("tile header read failed")),
+        "expected tile header read failure"
     );
 
-    let quarantined = layout
-        .quarantine_dir
-        .join("region_0")
-        .join(format!("{}_{}", tile_id.coord.x, tile_id.coord.y));
-    assert!(quarantined.exists(), "expected quarantined tile");
+    assert!(
+        has_quarantined_tile(&layout.quarantine_dir),
+        "expected quarantined tile"
+    );
+}
+
+fn has_quarantined_tile(root: &Path) -> bool {
+    let Ok(timestamps) = fs::read_dir(root) else {
+        return false;
+    };
+    for timestamp in timestamps.flatten() {
+        let Ok(regions) = fs::read_dir(timestamp.path()) else {
+            continue;
+        };
+        for region in regions.flatten() {
+            let Ok(tiles) = fs::read_dir(region.path()) else {
+                continue;
+            };
+            for tile in tiles.flatten() {
+                if tile.path().extension().and_then(|ext| ext.to_str()) == Some("tile") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }

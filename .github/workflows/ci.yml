@@ -20,6 +20,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+      - name: validate tiles
+        run: cargo run -p world --bin validate_world -- --json crates/world/tests/fixtures/min_project
 
   checks_windows:
     runs-on: windows-latest
@@ -35,3 +37,5 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+      - name: validate tiles
+        run: cargo run -p world --bin validate_world -- --json crates/world/tests/fixtures/min_project

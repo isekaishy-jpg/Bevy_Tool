@@ -1,10 +1,17 @@
 use crate::migrations::migrate_manifest;
 use crate::schema::WORLD_SCHEMA_VERSION;
-use crate::storage::{default_layout, quarantine_tile_dir, read_manifest, read_tile_meta};
+use crate::storage::{default_layout, quarantine_tile_file, read_manifest};
+use crate::tile_container::world_spec_hash::{hash_region, hash_world_spec, DEFAULT_WORLD_SPEC};
+use crate::tile_container::{
+    decode_hmap, decode_liqd, decode_meta, decode_prop, decode_wmap, TileContainerReader,
+    TileSectionTag, CONTAINER_VERSION, DEFAULT_ALIGNMENT, DIR_ENTRY_SIZE, HEADER_SIZE,
+    MAX_SECTION_COUNT, MIN_CONTAINER_VERSION,
+};
 use foundation::ids::{TileCoord, TileId};
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ValidationIssue {
     pub message: String,
     pub path: Option<PathBuf>,
@@ -30,6 +37,16 @@ pub fn validate_project(project_root: &Path) -> Vec<ValidationIssue> {
 
 pub fn validate_project_and_quarantine(project_root: &Path) -> Vec<ValidationIssue> {
     validate_project_impl(project_root, true)
+}
+
+pub fn validate_project_json(project_root: &Path) -> anyhow::Result<String> {
+    let issues = validate_project(project_root);
+    Ok(serde_json::to_string_pretty(&issues)?)
+}
+
+pub fn validate_project_and_quarantine_json(project_root: &Path) -> anyhow::Result<String> {
+    let issues = validate_project_and_quarantine(project_root);
+    Ok(serde_json::to_string_pretty(&issues)?)
 }
 
 fn validate_project_impl(project_root: &Path, quarantine: bool) -> Vec<ValidationIssue> {
@@ -112,7 +129,7 @@ fn scan_tiles(
 
         for tile_entry in tiles.flatten() {
             let tile_path = tile_entry.path();
-            if !tile_path.is_dir() {
+            if tile_path.extension().and_then(|ext| ext.to_str()) != Some("tile") {
                 continue;
             }
 
@@ -121,37 +138,359 @@ fn scan_tiles(
                 None => continue,
             };
 
-            let tile_id = match parse_tile_id(tile_name) {
+            let tile_id = match parse_tile_filename(tile_name) {
                 Some(tile_id) => tile_id,
                 None => {
                     issues.push(
-                        ValidationIssue::new(format!("invalid tile dir name: {tile_name}"))
+                        ValidationIssue::new(format!("invalid tile filename: {tile_name}"))
                             .with_path(tile_path.clone()),
                     );
                     continue;
                 }
             };
 
-            if let Err(err) = read_tile_meta(layout, &region_name, tile_id) {
-                issues.push(
-                    ValidationIssue::new(format!("tile meta read failed: {err}"))
-                        .with_path(tile_path.clone()),
-                );
+            validate_tile_container(
+                layout,
+                &region_name,
+                tile_id,
+                &tile_path,
+                quarantine,
+                issues,
+            );
+        }
+    }
+}
 
-                if quarantine {
-                    let _ =
-                        quarantine_tile_dir(layout, &region_name, tile_id, "tile meta read failed");
+fn parse_tile_filename(name: &str) -> Option<TileId> {
+    let stem = name.strip_suffix(".tile")?;
+    let mut parts = stem.split('_');
+    let x_part = parts.next()?;
+    let y_part = parts.next()?;
+    if !x_part.starts_with('x') || !y_part.starts_with('y') {
+        return None;
+    }
+    let x = x_part[1..].parse::<i32>().ok()?;
+    let y = y_part[1..].parse::<i32>().ok()?;
+    Some(TileId {
+        coord: TileCoord { x, y },
+    })
+}
+
+fn validate_tile_container(
+    layout: &crate::storage::Layout,
+    region: &str,
+    tile_id: TileId,
+    tile_path: &Path,
+    quarantine: bool,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let reader = match TileContainerReader::open(tile_path) {
+        Ok(reader) => reader,
+        Err(err) => {
+            issues.push(
+                ValidationIssue::new(format!("tile header read failed: {err}"))
+                    .with_path(tile_path.to_path_buf()),
+            );
+            if quarantine {
+                let _ = quarantine_tile_file(layout, region, tile_id, "tile header read failed");
+            }
+            return;
+        }
+    };
+
+    if reader.header.section_count > MAX_SECTION_COUNT {
+        issues.push(
+            ValidationIssue::new(format!(
+                "section_count {} exceeds cap",
+                reader.header.section_count
+            ))
+            .with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    if reader.header.container_version < MIN_CONTAINER_VERSION {
+        issues.push(
+            ValidationIssue::new(format!(
+                "container version {} below minimum {}",
+                reader.header.container_version, MIN_CONTAINER_VERSION
+            ))
+            .with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    if reader.header.container_version > CONTAINER_VERSION {
+        issues.push(
+            ValidationIssue::new(format!(
+                "container version {} exceeds supported {}",
+                reader.header.container_version, CONTAINER_VERSION
+            ))
+            .with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    if reader.header.section_dir_offset < HEADER_SIZE as u64 {
+        issues.push(
+            ValidationIssue::new("section directory overlaps header")
+                .with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    let expected_hash = hash_region(region);
+    if reader.header.region_hash != expected_hash {
+        issues
+            .push(ValidationIssue::new("region hash mismatch").with_path(tile_path.to_path_buf()));
+    }
+
+    let expected_spec_hash = hash_world_spec(DEFAULT_WORLD_SPEC);
+    if reader.header.world_spec_hash != expected_spec_hash {
+        issues.push(
+            ValidationIssue::new("world spec hash mismatch").with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    if reader.header.tile_x != tile_id.coord.x || reader.header.tile_y != tile_id.coord.y {
+        issues.push(
+            ValidationIssue::new("tile_id does not match filename")
+                .with_path(tile_path.to_path_buf()),
+        );
+    }
+
+    validate_directory(&reader, tile_path, issues);
+    validate_sections(&reader, tile_path, issues);
+
+    if quarantine {
+        if issues
+            .iter()
+            .any(|issue| issue.path.as_deref() == Some(tile_path))
+        {
+            let _ = quarantine_tile_file(layout, region, tile_id, "tile validation failed");
+        }
+    }
+}
+
+fn validate_directory(
+    reader: &TileContainerReader,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let dir_end = reader.header.section_dir_offset
+        + reader.header.section_count as u64 * DIR_ENTRY_SIZE as u64;
+    let mut ranges = Vec::new();
+    for entry in &reader.directory {
+        if !is_ascii_tag(entry.tag) {
+            issues.push(
+                ValidationIssue::new(format!("section tag {} is not ASCII FourCC", entry.tag))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+        if entry.offset < dir_end {
+            issues.push(
+                ValidationIssue::new(format!("section {} overlaps directory region", entry.tag))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+        if entry.stored_len == 0 {
+            issues.push(
+                ValidationIssue::new(format!("section {} has zero length", entry.tag))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+        let end = entry
+            .offset
+            .checked_add(entry.stored_len)
+            .unwrap_or(u64::MAX);
+        if end > reader.file_len {
+            issues.push(
+                ValidationIssue::new(format!("section {} out of bounds", entry.tag))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+        if entry.offset % DEFAULT_ALIGNMENT != 0 {
+            issues.push(
+                ValidationIssue::new(format!("section {} not aligned", entry.tag))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+        ranges.push((entry.offset, end, entry.tag));
+    }
+
+    ranges.sort_by_key(|range| range.0);
+    for window in ranges.windows(2) {
+        let a = &window[0];
+        let b = &window[1];
+        if b.0 < a.1 {
+            issues.push(
+                ValidationIssue::new(format!("section overlap: {} overlaps {}", a.2, b.2))
+                    .with_path(tile_path.to_path_buf()),
+            );
+        }
+    }
+}
+
+fn validate_sections(
+    reader: &TileContainerReader,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if reader.section(TileSectionTag::META).is_none() {
+        issues
+            .push(ValidationIssue::new("missing META section").with_path(tile_path.to_path_buf()));
+    }
+
+    for entry in &reader.directory {
+        let payload = match reader.decode_section(entry.tag) {
+            Ok(payload) => payload,
+            Err(err) => {
+                issues.push(
+                    ValidationIssue::new(format!("section {} read failed: {err}", entry.tag))
+                        .with_path(tile_path.to_path_buf()),
+                );
+                continue;
+            }
+        };
+
+        match entry.tag {
+            tag if tag == TileSectionTag::META => {
+                if let Err(err) = decode_meta(&payload) {
+                    issues.push(
+                        ValidationIssue::new(format!("META decode failed: {err}"))
+                            .with_path(tile_path.to_path_buf()),
+                    );
                 }
+            }
+            tag if tag == TileSectionTag::HMAP => match decode_hmap(&payload) {
+                Ok(hmap) => validate_hmap(&hmap, tile_path, issues),
+                Err(err) => issues.push(
+                    ValidationIssue::new(format!("HMAP decode failed: {err}"))
+                        .with_path(tile_path.to_path_buf()),
+                ),
+            },
+            tag if tag == TileSectionTag::WMAP => match decode_wmap(&payload) {
+                Ok(wmap) => validate_wmap(&wmap, tile_path, issues),
+                Err(err) => issues.push(
+                    ValidationIssue::new(format!("WMAP decode failed: {err}"))
+                        .with_path(tile_path.to_path_buf()),
+                ),
+            },
+            tag if tag == TileSectionTag::LIQD => match decode_liqd(&payload) {
+                Ok(liqd) => validate_liqd(&liqd, tile_path, issues),
+                Err(err) => issues.push(
+                    ValidationIssue::new(format!("LIQD decode failed: {err}"))
+                        .with_path(tile_path.to_path_buf()),
+                ),
+            },
+            tag if tag == TileSectionTag::PROP => match decode_prop(&payload) {
+                Ok(prop) => validate_prop(&prop, tile_path, issues),
+                Err(err) => issues.push(
+                    ValidationIssue::new(format!("PROP decode failed: {err}"))
+                        .with_path(tile_path.to_path_buf()),
+                ),
+            },
+            _ => {}
+        }
+    }
+}
+
+fn validate_hmap(
+    hmap: &crate::tile_container::HmapSection,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if hmap.width != DEFAULT_WORLD_SPEC.heightfield_samples
+        || hmap.height != DEFAULT_WORLD_SPEC.heightfield_samples
+    {
+        issues.push(
+            ValidationIssue::new("HMAP dimensions do not match world spec")
+                .with_path(tile_path.to_path_buf()),
+        );
+    }
+    for sample in &hmap.samples {
+        if !sample.is_finite() || *sample < -500.0 || *sample > 5000.0 {
+            issues.push(
+                ValidationIssue::new("HMAP sample out of range").with_path(tile_path.to_path_buf()),
+            );
+            break;
+        }
+    }
+}
+
+fn validate_wmap(
+    wmap: &crate::tile_container::WmapSection,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if wmap.width != DEFAULT_WORLD_SPEC.weightmap_resolution
+        || wmap.height != DEFAULT_WORLD_SPEC.weightmap_resolution
+    {
+        issues.push(
+            ValidationIssue::new("WMAP dimensions do not match world spec")
+                .with_path(tile_path.to_path_buf()),
+        );
+    }
+}
+
+fn validate_liqd(
+    liqd: &crate::tile_container::LiqdSection,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if liqd.width != DEFAULT_WORLD_SPEC.liquids_resolution
+        || liqd.height != DEFAULT_WORLD_SPEC.liquids_resolution
+    {
+        issues.push(
+            ValidationIssue::new("LIQD dimensions do not match world spec")
+                .with_path(tile_path.to_path_buf()),
+        );
+    }
+    let body_count = liqd.bodies.len() as u8;
+    if body_count > 0 {
+        for value in &liqd.mask {
+            if *value >= body_count {
+                issues.push(
+                    ValidationIssue::new("LIQD mask references unknown body")
+                        .with_path(tile_path.to_path_buf()),
+                );
+                break;
+            }
+        }
+    }
+    for body in &liqd.bodies {
+        if !body.height.is_finite() || body.height < -500.0 || body.height > 5000.0 {
+            issues.push(
+                ValidationIssue::new("LIQD body height out of range")
+                    .with_path(tile_path.to_path_buf()),
+            );
+            break;
+        }
+    }
+}
+
+fn validate_prop(
+    prop: &crate::tile_container::PropSection,
+    tile_path: &Path,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    for instance in &prop.instances {
+        for value in instance
+            .translation
+            .iter()
+            .chain(instance.rotation.iter())
+            .chain(instance.scale.iter())
+        {
+            if !value.is_finite() {
+                issues.push(
+                    ValidationIssue::new("PROP transform contains NaN/inf")
+                        .with_path(tile_path.to_path_buf()),
+                );
+                return;
             }
         }
     }
 }
 
-fn parse_tile_id(name: &str) -> Option<TileId> {
-    let mut parts = name.split('_');
-    let x = parts.next()?.parse::<i32>().ok()?;
-    let y = parts.next()?.parse::<i32>().ok()?;
-    Some(TileId {
-        coord: TileCoord { x, y },
-    })
+fn is_ascii_tag(tag: TileSectionTag) -> bool {
+    let bytes = tag.as_bytes();
+    bytes
+        .iter()
+        .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || *byte == b'_')
 }

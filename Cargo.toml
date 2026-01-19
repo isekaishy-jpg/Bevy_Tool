@@ -21,6 +21,7 @@ license = "MIT"
 anyhow = "1.0"
 bevy = "0.18"
 bevy_egui = "0.39"
+crc32fast = "1.4"
 egui_dock = "0.18"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

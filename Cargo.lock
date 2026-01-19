@@ -6274,6 +6274,7 @@ name = "world"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "crc32fast",
  "foundation",
  "serde",
  "serde_json",

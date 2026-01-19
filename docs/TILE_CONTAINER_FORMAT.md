@@ -1,134 +1,61 @@
-# Tile Container Format v1 (.tile)
+# Tile Container Format (.tile)
 
-## Summary
-Each world tile is stored as a single binary file with:
-- A fixed-size header
-- A section directory (table of contents)
-- A set of payload sections (optionally compressed per-section)
+This file describes the on-disk container used by the editor to store a single tile per file.
+All values are little-endian.
 
-Design goals:
-- Streaming-friendly partial reads
-- Deterministic output for build pipelines
-- Backward/forward compatibility via versioning
-- Robustness via checksums and validation
-
-Non-goals (v1):
-- Whole-file compression
-- Cross-endian portability (little-endian only)
-- Cryptographic signing (can be added later)
-
----
-
-## File naming and layout
-Tiles are stored per region:
+## File layout
 
 ```
-tiles/<region>/
-  x####_y####.tile
+| 128B header | N * 64B directory entries | section payloads (aligned) |
 ```
 
-Example:
-`tiles/r000/x0010_y0020.tile`
+### Header (128 bytes)
 
-Tile ID embedded in the header **must match** the filename.
+Fields (in order):
+- magic: 4 bytes, ASCII "TILE"
+- container_version: u16
+- endianness: u16 (1 = little)
+- flags: u32 (reserved)
+- tile_x: i32
+- tile_y: i32
+- region_hash: u64 (FNV-1a)
+- world_spec_hash: u64 (FNV-1a)
+- section_count: u32
+- section_dir_offset: u64 (byte offset to directory)
+- created_timestamp: u64 (unix seconds)
+- reserved: padding to 128 bytes
 
----
+### Directory entry (64 bytes)
 
-## Endianness
-v1 is **little-endian only**.
+Fields (in order):
+- tag: u32 (FourCC, ASCII)
+- section_version: u16
+- codec: u16 (0 = raw)
+- flags: u32 (reserved)
+- offset: u64 (payload offset)
+- stored_len: u64 (stored bytes length)
+- decoded_len: u64 (decoded bytes length)
+- crc32: u32 (of stored bytes)
+- reserved: padding to 64 bytes
 
----
+## Alignment
 
-## Top-level layout
+Payloads are aligned to 64 bytes. Alignment padding bytes are undefined and ignored.
 
-```
-[Header (fixed size)]
-[Section Directory (N * fixed-size entries)]
-[Section Payloads...]
-```
+## Tag encoding
 
-Payloads should be aligned to **64 bytes minimum** (4096 optional).
+Tags are ASCII FourCC encoded into a u32. Unknown tags are skipped safely.
 
----
+## Atomic writes
 
-## Header (fixed size; 128 bytes recommended)
+Tiles are written to `*.tile.tmp`, synced, and then renamed to `*.tile`.
+If an existing tile is present, it is rotated to `*.tile.bak` before replacement.
 
-All fields are little-endian.
+## Validation rules (summary)
 
-Suggested fields:
-- `magic: [8]u8` — e.g. `"MTILE\0\0\0"`
-- `container_version: u16` — starts at 1
-- `endianness: u8` — 1 = little
-- `flags: u8` — reserved
-- `tile_region: u16`
-- `tile_x: i32`
-- `tile_y: i32`
-- `world_spec_hash: u64` — hash of tile size/resolutions etc.
-- `section_count: u32`
-- `section_dir_offset: u64`
-- `created_unix_ms: u64`
-- `reserved: bytes` — pad to fixed size
+- header magic, version, endianness
+- directory bounds and non-overlap
+- CRC32 for payloads
+- required section policy (META required)
 
-Header is valid if:
-- magic matches
-- container_version is supported
-- endianness == 1
-- section_dir_offset is within file bounds
-
----
-
-## Section Directory Entry (fixed size; 64 bytes recommended)
-
-Suggested fields:
-- `tag: u32` — FourCC (e.g., `HMAP`)
-- `section_version: u16`
-- `codec: u8` — 0=raw, 1=zstd, 2=lz4
-- `flags: u8` — reserved
-- `offset: u64` — absolute file offset of payload
-- `stored_len: u64` — bytes stored on disk
-- `decoded_len: u64` — bytes after decode; equals stored_len if raw
-- `crc32: u32` — checksum of stored bytes
-- `reserved: bytes` — pad to fixed size
-
-Directory validation rules:
-- all offsets and lengths must be within file size
-- no overlaps between `[offset, offset+stored_len)`
-- (optional) offsets meet the alignment policy
-
----
-
-## Section decoding
-- Whole-file compression is not permitted.
-- If compression is used, it is applied **per-section**.
-- CRC is computed over the **stored** bytes (post-compression).
-
----
-
-## Checksums and corruption policy
-- `crc32` is computed over the stored payload bytes.
-- If a section fails CRC: treat that layer as invalid and continue.
-- If header/directory is invalid: tile fails to load; editor continues.
-
----
-
-## Atomic save policy
-Write tile updates via:
-1. Write `x####_y####.tile.tmp`
-2. Flush (and fsync if desired)
-3. Rename `.tmp` → `.tile`
-
-Optional: rotate `.bak` backups.
-
----
-
-## Determinism policy
-- Sections are written in canonical tag order.
-- Records inside sections are sorted deterministically.
-- Compression settings (if used) must be fixed to ensure stable output.
-
----
-
-## Compatibility policy
-- `container_version` bumps only if header/directory structure changes.
-- `section_version` bumps when the internal schema of that section changes.
-- Unknown tags/versions are skipped safely.
+See `docs/TILE_CONTAINER_VALIDATION.md` for the complete validator contract.
