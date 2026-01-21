@@ -79,9 +79,23 @@ impl TileContainerReader {
         let entry = self
             .section(tag)
             .ok_or_else(|| anyhow!("section {} not found", tag))?;
+        let dir_end = self.header.section_dir_offset
+            + self.header.section_count as u64 * DIR_ENTRY_SIZE as u64;
+        if entry.offset < dir_end {
+            bail!("section {} overlaps directory", tag);
+        }
+        if entry.stored_len == 0 {
+            bail!("section {} has zero length", tag);
+        }
+        let end = entry.offset.saturating_add(entry.stored_len);
+        if end > self.file_len {
+            bail!("section {} out of bounds", tag);
+        }
+        let len =
+            usize::try_from(entry.stored_len).map_err(|_| anyhow!("section {} too large", tag))?;
         let mut file = File::open(&self.path)?;
         file.seek(SeekFrom::Start(entry.offset))?;
-        let mut buffer = vec![0u8; entry.stored_len as usize];
+        let mut buffer = vec![0u8; len];
         file.read_exact(&mut buffer)?;
         Ok(buffer)
     }

@@ -1,6 +1,18 @@
+use crate::schema::WorldManifest;
+
 pub use crate::schema::{WorldSpec, DEFAULT_WORLD_SPEC};
 
 pub fn hash_world_spec(spec: WorldSpec) -> u64 {
+    let mut bytes = Vec::with_capacity(12);
+    bytes.extend_from_slice(&spec.tile_size_meters.to_le_bytes());
+    bytes.extend_from_slice(&spec.chunks_per_tile.to_le_bytes());
+    bytes.extend_from_slice(&spec.heightfield_samples.to_le_bytes());
+    bytes.extend_from_slice(&spec.weightmap_resolution.to_le_bytes());
+    bytes.extend_from_slice(&spec.liquids_resolution.to_le_bytes());
+    fnv1a_64(&bytes)
+}
+
+pub(crate) fn hash_world_spec_legacy(spec: WorldSpec) -> u64 {
     let data = format!(
         "tile_size_meters={};chunks_per_tile={};heightfield_samples={};weightmap_resolution={};liquids_resolution={}",
         spec.tile_size_meters,
@@ -32,4 +44,17 @@ fn fnv1a_64(data: &[u8]) -> u64 {
     }
     hash
 }
-use crate::schema::WorldManifest;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_world_spec_changes_when_field_changes() {
+        let base = DEFAULT_WORLD_SPEC;
+        let mut changed = base;
+        changed.liquids_resolution = base.liquids_resolution + 1;
+
+        assert_ne!(hash_world_spec(base), hash_world_spec(changed));
+    }
+}

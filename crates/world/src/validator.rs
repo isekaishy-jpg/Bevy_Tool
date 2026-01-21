@@ -5,7 +5,9 @@ use crate::storage::{
     region_tiles_dir, world_layout, ProjectLayout, WorldLayout, PROJECT_MANIFEST_FILE,
     WORLD_MANIFEST_FILE,
 };
-use crate::tile_container::world_spec_hash::{hash_region, hash_world_spec_from_manifest};
+use crate::tile_container::world_spec_hash::{
+    hash_region, hash_world_spec_from_manifest, hash_world_spec_legacy,
+};
 use crate::tile_container::{
     decode_hmap, decode_liqd, decode_meta, decode_prop, decode_wmap, TileContainerReader,
     TileSectionTag, CONTAINER_VERSION, DEFAULT_ALIGNMENT, DIR_ENTRY_SIZE, HEADER_SIZE,
@@ -200,11 +202,13 @@ fn scan_world_tiles(
 
     let expected_spec_hash = hash_world_spec_from_manifest(manifest);
     let expected_spec = manifest.world_spec;
+    let legacy_spec_hash = hash_world_spec_legacy(expected_spec);
     for region in &manifest.regions {
         scan_region_tiles(
             layout,
             region,
             expected_spec_hash,
+            legacy_spec_hash,
             expected_spec,
             quarantine,
             issues,
@@ -232,6 +236,7 @@ fn scan_region_tiles(
     layout: &WorldLayout,
     region: &RegionManifest,
     expected_spec_hash: u64,
+    legacy_spec_hash: u64,
     expected_spec: WorldSpec,
     quarantine: bool,
     issues: &mut Vec<ValidationIssue>,
@@ -283,6 +288,7 @@ fn scan_region_tiles(
             tile_id,
             &tile_path,
             expected_spec_hash,
+            legacy_spec_hash,
             expected_spec,
             quarantine,
             issues,
@@ -312,6 +318,7 @@ fn validate_tile_container(
     tile_id: TileId,
     tile_path: &Path,
     expected_spec_hash: u64,
+    legacy_spec_hash: u64,
     expected_spec: WorldSpec,
     quarantine: bool,
     issues: &mut Vec<ValidationIssue>,
@@ -373,7 +380,9 @@ fn validate_tile_container(
             .push(ValidationIssue::new("region hash mismatch").with_path(tile_path.to_path_buf()));
     }
 
-    if reader.header.world_spec_hash != expected_spec_hash {
+    if reader.header.world_spec_hash != expected_spec_hash
+        && reader.header.world_spec_hash != legacy_spec_hash
+    {
         issues.push(
             ValidationIssue::new("world spec hash mismatch").with_path(tile_path.to_path_buf()),
         );

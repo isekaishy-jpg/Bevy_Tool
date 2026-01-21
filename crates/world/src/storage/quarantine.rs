@@ -3,7 +3,10 @@ use anyhow::Context;
 use foundation::ids::TileId;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static QUARANTINE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn quarantine_tile_dir(
     layout: &WorldLayout,
@@ -56,10 +59,11 @@ fn quarantine_path(
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
+        .as_millis();
+    let seq = QUARANTINE_COUNTER.fetch_add(1, Ordering::Relaxed);
     let target = layout
         .quarantine_dir
-        .join(timestamp.to_string())
+        .join(format!("{timestamp}-{seq}"))
         .join(region)
         .join(format!(
             "x{}_y{}.{}",

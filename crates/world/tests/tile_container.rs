@@ -362,3 +362,70 @@ fn tile_container_bounds_detected_by_validator() {
         "expected bounds issue"
     );
 }
+
+#[test]
+fn tile_container_reader_rejects_out_of_bounds_section() {
+    let temp = tempdir().expect("tempdir");
+    let region = "region_0";
+    let tile_id = TileId {
+        coord: TileCoord { x: 0, y: 1 },
+    };
+    let region_hash = hash_region(region);
+    let spec_hash = hash_world_spec(DEFAULT_WORLD_SPEC);
+    let header = TileContainerHeader::new(tile_id.coord.x, tile_id.coord.y, region_hash, spec_hash);
+
+    let meta = MetaSection {
+        format_version: WORLD_FORMAT_VERSION,
+        tile_id,
+        region_hash,
+        created_timestamp: 0,
+    };
+    let hmap = HmapSection {
+        width: 2,
+        height: 2,
+        samples: vec![0.0, 1.0, 2.0, 3.0],
+    };
+
+    let mut writer = TileContainerWriter::new().alignment(DEFAULT_ALIGNMENT);
+    writer.add_section(TileSectionPayload {
+        tag: TileSectionTag::META,
+        section_version: 1,
+        codec: 0,
+        flags: 0,
+        decoded: encode_meta(&meta),
+    });
+    writer.add_section(TileSectionPayload {
+        tag: TileSectionTag::HMAP,
+        section_version: 1,
+        codec: 0,
+        flags: 0,
+        decoded: encode_hmap(&hmap),
+    });
+
+    let path = temp.path().join("x0_y1.tile");
+    writer.write(&path, header).expect("write tile");
+
+    let reader = TileContainerReader::open(&path).expect("read tile");
+    let index = reader
+        .directory
+        .iter()
+        .position(|entry| entry.tag == TileSectionTag::HMAP)
+        .expect("HMAP entry");
+    let entry_offset = reader.header.section_dir_offset + index as u64 * DIR_ENTRY_SIZE as u64 + 20;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .expect("open tile");
+    file.seek(SeekFrom::Start(entry_offset))
+        .expect("seek to stored_len field");
+    file.write_all(&reader.file_len.to_le_bytes())
+        .expect("overwrite stored_len");
+    file.sync_all().expect("sync dir");
+
+    let reader = TileContainerReader::open(&path).expect("read tile");
+    assert!(
+        reader.read_section(TileSectionTag::HMAP).is_err(),
+        "expected bounds failure"
+    );
+}

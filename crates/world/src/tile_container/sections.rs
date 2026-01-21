@@ -318,6 +318,8 @@ pub fn decode_prop(bytes: &[u8]) -> anyhow::Result<PropSection> {
     Ok(PropSection { instances })
 }
 
+// NOTE: Custom liquid names are not serialized yet; only a sentinel is stored.
+// Keep this behavior until the liquids schema checklist defines a stable encoding.
 fn encode_liqd_kind(kind: &LiqdKind) -> u16 {
     match kind {
         LiqdKind::Water => 0,
