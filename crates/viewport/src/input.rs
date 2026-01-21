@@ -63,7 +63,7 @@ pub fn update_viewport_input(
         }
     }
 
-    let focusable = hovered && !ui_input.wants_pointer;
+    let focusable = hovered;
     let mut next_captured = state.captured;
     let mut next_captor = state.captor;
 
@@ -79,7 +79,7 @@ pub fn update_viewport_input(
             next_captured = false;
             next_captor = None;
         }
-    } else if focusable {
+    } else if focusable && !ui_input.wants_pointer {
         if let Some(source) = requested_source {
             next_captured = true;
             next_captor = Some(source);

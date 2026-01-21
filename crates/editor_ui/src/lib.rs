@@ -18,6 +18,7 @@ impl Plugin for EditorUiPlugin {
         .init_resource::<panels::ProjectPanelState>()
         .init_resource::<panels::CommandPaletteState>()
         .init_resource::<panels::LogPanelState>()
+        .init_resource::<panels::GoToTileState>()
         .add_systems(Startup, setup_ui_camera)
         .add_systems(EguiPrimaryContextPass, panels::draw_root_panel);
     }
