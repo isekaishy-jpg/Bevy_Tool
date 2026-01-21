@@ -23,7 +23,7 @@ Keep dependencies flowing toward lower-level crates to avoid cycles:
 - `runtime` -> `world`, `foundation`
 - `viewport` -> `foundation`
 - `editor_core` -> `world`, `runtime`, `foundation`
-- `editor_ui` -> `editor_core`
+- `editor_ui` -> `editor_core`, `viewport`
 - `exporter` -> `world`, `runtime`, `foundation`
 - `preview` -> `runtime`, `viewport`
 - `apps/editor` wires everything together

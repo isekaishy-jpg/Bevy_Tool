@@ -13,6 +13,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 editor_core = { path = "../editor_core" }
+viewport = { path = "../viewport" }
 world = { path = "../world" }
 
 [features]

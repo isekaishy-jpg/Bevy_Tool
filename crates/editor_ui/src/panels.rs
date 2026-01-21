@@ -1,9 +1,10 @@
 //! Panel stubs.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use editor_core::autosave::{restore_backup, AutosaveSettings, RecoveryState};
-use editor_core::command_registry::CommandRegistry;
+use editor_core::command_registry::{CommandRegistry, OverlayState};
 use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
@@ -11,6 +12,13 @@ use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 use serde::{Deserialize, Serialize};
+use viewport::{ViewportRect, ViewportService};
+
+#[derive(SystemParam)]
+pub(crate) struct ViewportUiParams<'w> {
+    viewport_rect: ResMut<'w, ViewportRect>,
+    viewport_service: ResMut<'w, ViewportService>,
+}
 
 pub mod command_palette;
 pub mod logs;
@@ -79,6 +87,9 @@ struct EditorTabViewer<'a> {
     prefs: &'a mut EditorPrefs,
     project_ui: &'a mut ProjectPanelState,
     log_ui: &'a mut LogPanelState,
+    overlays: &'a OverlayState,
+    viewport_rect: &'a mut ViewportRect,
+    viewport_service: &'a mut ViewportService,
 }
 
 impl<'a> TabViewer for EditorTabViewer<'a> {
@@ -98,8 +109,24 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         match tab {
             PanelId::Viewport => {
-                ui.heading("Viewport");
-                ui.label("3D viewport coming soon.");
+                let panel_rect = ui.max_rect();
+                let screen_rect = ui.ctx().input(|input| input.content_rect());
+                let scale_factor = ui.ctx().pixels_per_point();
+                update_viewport_rect_from_egui(
+                    panel_rect,
+                    screen_rect,
+                    scale_factor,
+                    self.viewport_rect,
+                    self.viewport_service,
+                );
+                if self.overlays.show_overlays {
+                    if !egui_rect_is_finite(panel_rect) {
+                        return;
+                    }
+                    let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 200, 255));
+                    ui.painter()
+                        .rect_stroke(panel_rect, 0.0, stroke, egui::StrokeKind::Inside);
+                }
             }
             PanelId::Assets => {
                 ui.heading("Assets");
@@ -145,11 +172,12 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn draw_root_panel(
+pub(crate) fn draw_root_panel(
     mut contexts: EguiContexts,
     mut commands: Commands,
     config: Res<EditorConfig>,
     registry: Res<CommandRegistry>,
+    overlays: Res<OverlayState>,
     mut project_state: ResMut<ProjectState>,
     log_buffer: Option<Res<LogBuffer>>,
     autosave_settings: Res<AutosaveSettings>,
@@ -160,6 +188,7 @@ pub fn draw_root_panel(
     mut dock_layout: ResMut<DockLayout>,
     mut editor_state: ResMut<ProjectEditorStateResource>,
     mut log_ui: ResMut<LogPanelState>,
+    mut viewport: ViewportUiParams,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -167,6 +196,8 @@ pub fn draw_root_panel(
 
     sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
+    viewport.viewport_rect.invalidate();
+    viewport.viewport_service.rect = *viewport.viewport_rect;
 
     egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
@@ -275,6 +306,9 @@ pub fn draw_root_panel(
             prefs: &mut prefs,
             project_ui: &mut project_ui,
             log_ui: &mut log_ui,
+            overlays: overlays.as_ref(),
+            viewport_rect: &mut viewport.viewport_rect,
+            viewport_service: &mut viewport.viewport_service,
         };
         let style = Style::from_egui(ui.style().as_ref());
         DockArea::new(&mut dock_layout.dock_state)
@@ -328,4 +362,41 @@ fn sync_layout_with_project(
     }
 
     dock_layout.reset();
+}
+
+fn update_viewport_rect_from_egui(
+    panel_rect: egui::Rect,
+    screen_rect: egui::Rect,
+    scale_factor: f32,
+    viewport_rect: &mut ViewportRect,
+    viewport_service: &mut ViewportService,
+) {
+    if !egui_rect_is_finite(panel_rect)
+        || !egui_rect_is_finite(screen_rect)
+        || !scale_factor.is_finite()
+        || scale_factor <= 0.0
+    {
+        viewport_rect.invalidate();
+        viewport_service.rect = *viewport_rect;
+        return;
+    }
+    let logical = egui_rect_to_bevy(panel_rect);
+    let screen = egui_rect_to_bevy(screen_rect);
+    let updated = ViewportRect::from_logical_rect(logical, screen, scale_factor);
+    *viewport_rect = updated;
+    viewport_service.rect = updated;
+}
+
+fn egui_rect_to_bevy(rect: egui::Rect) -> Rect {
+    Rect::from_corners(
+        Vec2::new(rect.min.x, rect.min.y),
+        Vec2::new(rect.max.x, rect.max.y),
+    )
+}
+
+fn egui_rect_is_finite(rect: egui::Rect) -> bool {
+    rect.min.x.is_finite()
+        && rect.min.y.is_finite()
+        && rect.max.x.is_finite()
+        && rect.max.y.is_finite()
 }

@@ -1,20 +1,31 @@
 //! Viewport abstraction: camera, picking, gizmos.
 
+use bevy::camera::Viewport;
 use bevy::prelude::*;
 
 pub mod camera;
+pub mod service;
+
+pub use service::{ViewportBackend, ViewportRect, ViewportService};
+
+#[derive(Component)]
+pub struct EditorViewportCamera;
 
 pub struct ViewportPlugin;
 
 impl Plugin for ViewportPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_viewport);
+        app.init_resource::<ViewportRect>()
+            .init_resource::<ViewportService>()
+            .add_systems(Startup, setup_viewport)
+            .add_systems(PostUpdate, apply_camera_viewport);
     }
 }
 
 fn setup_viewport(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
+        EditorViewportCamera,
         Transform::from_xyz(-6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
     commands.spawn((
@@ -24,4 +35,27 @@ fn setup_viewport(mut commands: Commands) {
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -1.1, -0.8, 0.0)),
     ));
+}
+
+fn apply_camera_viewport(
+    rect: Res<ViewportRect>,
+    service: Res<ViewportService>,
+    mut query: Query<&mut Camera, With<EditorViewportCamera>>,
+) {
+    if service.backend != ViewportBackend::CameraViewport {
+        return;
+    }
+    let mut cameras = query.iter_mut();
+    let Some(mut camera) = cameras.next() else {
+        return;
+    };
+    if rect.is_valid {
+        camera.viewport = Some(Viewport {
+            physical_position: rect.physical_origin,
+            physical_size: rect.physical_size,
+            ..Default::default()
+        });
+    } else {
+        camera.viewport = None;
+    }
 }
