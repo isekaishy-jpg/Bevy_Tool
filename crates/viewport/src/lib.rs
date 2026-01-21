@@ -4,8 +4,13 @@ use bevy::camera::Viewport;
 use bevy::prelude::*;
 
 pub mod camera;
+pub mod input;
 pub mod service;
 
+pub use input::{
+    log_viewport_capture_changes, update_viewport_input, ViewportCaptureChanged,
+    ViewportCaptureRequest, ViewportCaptureSource, ViewportInputState, ViewportUiInput,
+};
 pub use service::{ViewportBackend, ViewportRect, ViewportService};
 
 #[derive(Component)]
@@ -17,8 +22,19 @@ impl Plugin for ViewportPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ViewportRect>()
             .init_resource::<ViewportService>()
+            .init_resource::<ViewportUiInput>()
+            .init_resource::<ViewportInputState>()
+            .add_message::<ViewportCaptureRequest>()
+            .add_message::<ViewportCaptureChanged>()
             .add_systems(Startup, setup_viewport)
-            .add_systems(PostUpdate, apply_camera_viewport);
+            .add_systems(
+                PostUpdate,
+                (
+                    apply_camera_viewport,
+                    update_viewport_input,
+                    log_viewport_capture_changes.after(update_viewport_input),
+                ),
+            );
     }
 }
 

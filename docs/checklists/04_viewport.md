@@ -40,15 +40,15 @@ Non-goal (v1): render-to-texture / multiple simultaneous viewports. We will pres
 
 ## Milestone 04.1 — Input focus policy (UI vs viewport)
 
-- [ ] UI consumes input first
-- [ ] Viewport only acts when hovered/focused (cursor inside `ViewportRect`)
-- [ ] Tool capture semantics:
-  - [ ] LMB drag captures pointer for the active tool
-  - [ ] Capture releases on mouse up
-- [ ] Escape cancels current tool interaction and releases capture
-- [ ] Keyboard routing:
-  - [ ] When viewport focused, camera hotkeys work
-  - [ ] When UI has text focus, viewport hotkeys do not fire
+- [x] UI consumes input first
+- [x] Viewport only acts when hovered/focused (cursor inside `ViewportRect`)
+- [x] Tool capture semantics:
+  - [x] LMB drag captures pointer for the active tool
+  - [x] Capture releases on mouse up
+- [x] Escape cancels current tool interaction and releases capture
+- [x] Keyboard routing:
+  - [x] When viewport focused, camera hotkeys work
+  - [x] When UI has text focus, viewport hotkeys do not fire
 
 **Acceptance**
 - No “UI vs camera fight” under any combination of panel hover, drag, scroll.

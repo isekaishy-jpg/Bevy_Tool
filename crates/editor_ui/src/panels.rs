@@ -1,6 +1,6 @@
 //! Panel stubs.
 
-use ::viewport::{ViewportRect, ViewportService};
+use ::viewport::{ViewportRect, ViewportService, ViewportUiInput};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct ViewportUiParams<'w> {
     viewport_rect: ResMut<'w, ViewportRect>,
     viewport_service: ResMut<'w, ViewportService>,
+    viewport_input: ResMut<'w, ViewportUiInput>,
 }
 
 pub mod command_palette;
@@ -141,6 +142,9 @@ pub(crate) fn draw_root_panel(
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
+
+    viewport.viewport_input.wants_pointer = ctx.wants_pointer_input();
+    viewport.viewport_input.wants_keyboard = ctx.wants_keyboard_input();
 
     layout::sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
