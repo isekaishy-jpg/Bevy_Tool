@@ -16,6 +16,7 @@
 
 ## Checklists
 ### New Feature Checklist
+- All checklist work MUST follow: checklist_workflow.md
 - Define the smallest owning crate/module.
 - Define inputs/outputs (events/resources/components).
 - Add only the dependencies you need; prefer workspace deps.
