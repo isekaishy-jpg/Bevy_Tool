@@ -9,28 +9,28 @@ Non-goal (v1): render-to-texture / multiple simultaneous viewports. We will pres
 ## Milestone 04.0 — Viewport plumbing (egui layout → camera viewport)
 
 ### 04.0.1 Viewport rect resource
-- [ ] Add `ViewportRect` resource:
-  - [ ] logical rect (egui points)
-  - [ ] physical rect (pixels)
-  - [ ] dpi scale factor
-  - [ ] “is_valid” flag (viewport exists and non-zero)
+- [x] Add `ViewportRect` resource:
+  - [x] logical rect (egui points)
+  - [x] physical rect (pixels)
+  - [x] dpi scale factor
+  - [x] “is_valid” flag (viewport exists and non-zero)
 
 ### 04.0.2 Derive viewport rect from UI layout
-- [ ] In the egui layout pass, compute the remaining center rect after panels/docking
-- [ ] Write to `ViewportRect` every frame
-- [ ] Clamp within window bounds and avoid negative sizes
+- [x] In the egui layout pass, compute the remaining center rect after panels/docking
+- [x] Write to `ViewportRect` every frame
+- [x] Clamp within window bounds and avoid negative sizes
 
 ### 04.0.3 Apply Bevy camera viewport
-- [ ] Tag the “editor viewport camera” entity (e.g., `EditorViewportCamera`)
-- [ ] After UI layout, set `Camera.viewport = Some(Viewport { physical_position, physical_size, .. })`
-- [ ] Handle resize + dpi changes correctly
-- [ ] Add a debug overlay toggle to draw the viewport rect outline (optional but useful)
+- [x] Tag the “editor viewport camera” entity (e.g., `EditorViewportCamera`)
+- [x] After UI layout, set `Camera.viewport = Some(Viewport { physical_position, physical_size, .. })`
+- [x] Handle resize + dpi changes correctly
+- [x] Add a debug overlay toggle to draw the viewport rect outline (optional but useful)
 
 ### 04.0.4 Backend seam (future-proof)
-- [ ] Introduce `ViewportBackend` enum or trait surface:
-  - [ ] `CameraViewport` (default)
-  - [ ] `RenderToTexture` (future)
-- [ ] All tools query viewport geometry through a single `ViewportService` API (no ad hoc math spread around)
+- [x] Introduce `ViewportBackend` enum or trait surface:
+  - [x] `CameraViewport` (default)
+  - [x] `RenderToTexture` (future)
+- [x] All tools query viewport geometry through a single `ViewportService` API (no ad hoc math spread around)
 
 **Acceptance**
 - 3D rendering is confined to the viewport region; it never draws under egui panels.

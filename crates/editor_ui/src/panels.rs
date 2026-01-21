@@ -1,5 +1,6 @@
 //! Panel stubs.
 
+use ::viewport::{ViewportRect, ViewportService};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -10,9 +11,8 @@ use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
 use editor_core::project::ProjectState;
 use editor_core::EditorConfig;
-use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
+use egui_dock::{DockArea, Style, TabViewer};
 use serde::{Deserialize, Serialize};
-use viewport::{ViewportRect, ViewportService};
 
 #[derive(SystemParam)]
 pub(crate) struct ViewportUiParams<'w> {
@@ -21,9 +21,12 @@ pub(crate) struct ViewportUiParams<'w> {
 }
 
 pub mod command_palette;
+pub mod layout;
 pub mod logs;
 pub mod project;
+pub mod viewport;
 pub use command_palette::CommandPaletteState;
+pub use layout::DockLayout;
 pub use logs::LogPanelState;
 pub use project::ProjectPanelState;
 
@@ -35,49 +38,6 @@ pub enum PanelId {
     Inspector,
     World,
     Console,
-}
-
-#[derive(Resource)]
-pub struct DockLayout {
-    dock_state: DockState<PanelId>,
-    last_saved: Option<String>,
-    loaded_project: Option<String>,
-}
-
-impl DockLayout {
-    fn default_state() -> DockState<PanelId> {
-        let mut dock_state = DockState::new(vec![PanelId::Viewport]);
-        let tree = dock_state.main_surface_mut();
-        let [center, _left] = tree.split_left(
-            NodeIndex::root(),
-            0.22,
-            vec![PanelId::Assets, PanelId::Outliner],
-        );
-        let [center, _right] =
-            tree.split_right(center, 0.25, vec![PanelId::Inspector, PanelId::World]);
-        let [_center, _bottom] = tree.split_below(center, 0.28, vec![PanelId::Console]);
-
-        dock_state
-    }
-
-    fn new_default() -> Self {
-        Self {
-            dock_state: Self::default_state(),
-            last_saved: None,
-            loaded_project: None,
-        }
-    }
-
-    fn reset(&mut self) {
-        self.dock_state = Self::default_state();
-        self.last_saved = None;
-    }
-}
-
-impl Default for DockLayout {
-    fn default() -> Self {
-        Self::new_default()
-    }
 }
 
 struct EditorTabViewer<'a> {
@@ -109,24 +69,12 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         match tab {
             PanelId::Viewport => {
-                let panel_rect = ui.max_rect();
-                let screen_rect = ui.ctx().input(|input| input.content_rect());
-                let scale_factor = ui.ctx().pixels_per_point();
-                update_viewport_rect_from_egui(
-                    panel_rect,
-                    screen_rect,
-                    scale_factor,
+                viewport::draw_viewport_panel(
+                    ui,
+                    self.overlays,
                     self.viewport_rect,
                     self.viewport_service,
                 );
-                if self.overlays.show_overlays {
-                    if !egui_rect_is_finite(panel_rect) {
-                        return;
-                    }
-                    let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 200, 255));
-                    ui.painter()
-                        .rect_stroke(panel_rect, 0.0, stroke, egui::StrokeKind::Inside);
-                }
             }
             PanelId::Assets => {
                 ui.heading("Assets");
@@ -194,7 +142,7 @@ pub(crate) fn draw_root_panel(
         return;
     };
 
-    sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
+    layout::sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
     viewport.viewport_rect.invalidate();
     viewport.viewport_service.rect = *viewport.viewport_rect;
@@ -316,87 +264,10 @@ pub(crate) fn draw_root_panel(
             .show_inside(ui, &mut viewer);
     });
 
-    persist_layout(&mut editor_state, &mut dock_layout);
+    layout::persist_layout(&mut editor_state, &mut dock_layout);
     for command in project_ui.pending_commands.drain(..) {
         commands.trigger(command);
     }
 
     command_palette::draw_command_palette(ctx, &mut palette_state, &registry, &mut commands);
-}
-
-fn persist_layout(editor_state: &mut ProjectEditorStateResource, dock_layout: &mut DockLayout) {
-    if editor_state.root.is_none() {
-        return;
-    }
-    let Ok(serialized) = serde_json::to_string(&dock_layout.dock_state) else {
-        return;
-    };
-    if dock_layout.last_saved.as_deref() == Some(&serialized) {
-        return;
-    }
-    dock_layout.last_saved = Some(serialized.clone());
-    editor_state.state.dock_layout = Some(serialized);
-}
-
-fn sync_layout_with_project(
-    project_state: &ProjectState,
-    editor_state: &ProjectEditorStateResource,
-    dock_layout: &mut DockLayout,
-) {
-    let project_key = project_state
-        .current
-        .as_ref()
-        .map(|info| info.root.to_string_lossy().to_string());
-
-    if dock_layout.loaded_project == project_key {
-        return;
-    }
-
-    dock_layout.loaded_project = project_key.clone();
-    if let Some(layout) = editor_state.state.dock_layout.as_deref() {
-        if let Ok(dock_state) = serde_json::from_str::<DockState<PanelId>>(layout) {
-            dock_layout.dock_state = dock_state;
-            dock_layout.last_saved = Some(layout.to_string());
-            return;
-        }
-    }
-
-    dock_layout.reset();
-}
-
-fn update_viewport_rect_from_egui(
-    panel_rect: egui::Rect,
-    screen_rect: egui::Rect,
-    scale_factor: f32,
-    viewport_rect: &mut ViewportRect,
-    viewport_service: &mut ViewportService,
-) {
-    if !egui_rect_is_finite(panel_rect)
-        || !egui_rect_is_finite(screen_rect)
-        || !scale_factor.is_finite()
-        || scale_factor <= 0.0
-    {
-        viewport_rect.invalidate();
-        viewport_service.rect = *viewport_rect;
-        return;
-    }
-    let logical = egui_rect_to_bevy(panel_rect);
-    let screen = egui_rect_to_bevy(screen_rect);
-    let updated = ViewportRect::from_logical_rect(logical, screen, scale_factor);
-    *viewport_rect = updated;
-    viewport_service.rect = updated;
-}
-
-fn egui_rect_to_bevy(rect: egui::Rect) -> Rect {
-    Rect::from_corners(
-        Vec2::new(rect.min.x, rect.min.y),
-        Vec2::new(rect.max.x, rect.max.y),
-    )
-}
-
-fn egui_rect_is_finite(rect: egui::Rect) -> bool {
-    rect.min.x.is_finite()
-        && rect.min.y.is_finite()
-        && rect.max.x.is_finite()
-        && rect.max.y.is_finite()
 }
