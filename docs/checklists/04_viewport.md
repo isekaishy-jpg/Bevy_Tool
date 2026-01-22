@@ -57,15 +57,15 @@ Non-goal (v1): render-to-texture / multiple simultaneous viewports. We will pres
 
 ## Milestone 04.2 — RTS/orbit camera (MMO editor grade)
 
-- [ ] Pan (WASD and/or middle-drag)
-- [ ] Zoom with altitude scaling (speed increases with height)
-- [ ] Optional orbit (Alt+LMB or similar)
-- [ ] Frame selection (F)
-- [ ] Jump to tile coords (Go To…)
-- [ ] Camera speed presets (slow/normal/fast)
-- [ ] Safety clamps:
-  - [ ] min altitude above terrain
-  - [ ] pitch clamp (avoid flipping)
+- [x] Pan (WASD and/or middle-drag)
+- [x] Zoom with altitude scaling (speed increases with height)
+- [x] Optional orbit (Alt+LMB or similar)
+- [x] Frame selection (F)
+- [x] Jump to tile coords (Go To…)
+- [x] Camera speed presets (slow/normal/fast)
+- [x] Safety clamps:
+  - [x] min altitude above terrain
+  - [x] pitch clamp (avoid flipping)
 
 **Acceptance**
 - You can traverse a 255×255-tile region comfortably and precisely.

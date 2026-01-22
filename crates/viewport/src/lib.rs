@@ -11,7 +11,7 @@ pub mod service;
 
 pub use camera::{
     update_viewport_camera, CameraTuning, ViewportCameraController, ViewportCameraMode,
-    ViewportGoToTile, ViewportWorldSettings,
+    ViewportFocusRequest, ViewportGoToTile, ViewportWorldSettings,
 };
 pub use grid::draw_ground_grid;
 pub use input::{
@@ -38,6 +38,7 @@ impl Plugin for ViewportPlugin {
             .init_resource::<ViewportWorldSettings>()
             .add_message::<ViewportCaptureRequest>()
             .add_message::<ViewportCaptureChanged>()
+            .add_message::<ViewportFocusRequest>()
             .add_message::<ViewportGoToTile>()
             .add_systems(Startup, setup_viewport)
             .add_systems(

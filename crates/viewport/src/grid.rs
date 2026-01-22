@@ -1,14 +1,19 @@
 use bevy::prelude::*;
 
-use crate::{ViewportCameraController, ViewportWorldSettings};
+use crate::{ViewportCameraController, ViewportCameraMode, ViewportWorldSettings};
 
 pub fn draw_ground_grid(
     mut gizmos: Gizmos,
     controller: Res<ViewportCameraController>,
+    mode: Res<ViewportCameraMode>,
     world: Res<ViewportWorldSettings>,
 ) {
     let spacing = (world.tile_size_meters / 128.0).clamp(1.0, 32.0);
-    let half_extent = (controller.distance * 2.0).clamp(20.0, world.tile_size_meters * 4.0);
+    let reference_distance = match *mode {
+        ViewportCameraMode::Orbit => controller.distance,
+        ViewportCameraMode::FreeFly => controller.position.y.abs().max(1.0),
+    };
+    let half_extent = (reference_distance * 2.0).clamp(20.0, world.tile_size_meters * 4.0);
     let grid_color = Color::srgba(0.28, 0.36, 0.42, 0.9);
     let axis_x = Color::srgba(0.95, 0.25, 0.2, 0.9);
     let axis_z = Color::srgba(0.2, 0.55, 0.95, 0.9);

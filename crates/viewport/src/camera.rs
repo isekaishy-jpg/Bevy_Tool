@@ -119,6 +119,11 @@ pub struct ViewportGoToTile {
     pub tile_y: i32,
 }
 
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+pub struct ViewportFocusRequest {
+    pub world_point: Option<Vec3>,
+}
+
 #[derive(SystemParam)]
 pub struct ViewportCameraInputs<'w, 's> {
     time: Res<'w, Time>,
@@ -130,6 +135,7 @@ pub struct ViewportCameraInputs<'w, 's> {
     mouse_motion: MessageReader<'w, 's, MouseMotion>,
     mouse_wheel: MessageReader<'w, 's, MouseWheel>,
     go_to_tile: MessageReader<'w, 's, ViewportGoToTile>,
+    focus_requests: MessageReader<'w, 's, ViewportFocusRequest>,
 }
 
 pub fn update_viewport_camera(
@@ -172,6 +178,10 @@ pub fn update_viewport_camera(
         }
     }
 
+    if let Some(request) = last_focus_request(&mut inputs.focus_requests) {
+        apply_focus_request(request, mode, &mut controller, &transform);
+    }
+
     let altitude = current_altitude(mode, &controller);
 
     if inputs.input_state.hotkeys_allowed {
@@ -191,9 +201,12 @@ pub fn update_viewport_camera(
         }
 
         if mode == ViewportCameraMode::Orbit && inputs.keys.just_pressed(KeyCode::KeyF) {
-            if let Some(point) = ground_focus_point(&transform) {
-                controller.orbit_focus = point;
-            }
+            apply_focus_request(
+                ViewportFocusRequest { world_point: None },
+                mode,
+                &mut controller,
+                &transform,
+            );
         }
     }
 
@@ -291,6 +304,34 @@ fn apply_mode_transition(
             controller.pitch = pitch.clamp(limits.x, limits.y);
         }
     }
+}
+
+fn apply_focus_request(
+    request: ViewportFocusRequest,
+    mode: ViewportCameraMode,
+    controller: &mut ViewportCameraController,
+    transform: &Transform,
+) {
+    if mode != ViewportCameraMode::Orbit {
+        return;
+    }
+    let target = request
+        .world_point
+        .or_else(|| ground_focus_point(transform));
+    let Some(target) = target else {
+        return;
+    };
+
+    controller.orbit_focus = target;
+    let offset = controller.position - target;
+    if offset.length_squared() <= f32::EPSILON {
+        return;
+    }
+    let (yaw, pitch) = yaw_pitch_from_offset(offset);
+    let limits = pitch_limits_for_mode(ViewportCameraMode::Orbit, controller);
+    controller.yaw = yaw;
+    controller.pitch = pitch.clamp(limits.x, limits.y);
+    controller.distance = offset.length().max(controller.min_distance());
 }
 
 fn current_altitude(mode: ViewportCameraMode, controller: &ViewportCameraController) -> f32 {
@@ -458,6 +499,16 @@ fn last_go_to_tile(reader: &mut MessageReader<ViewportGoToTile>) -> Option<(i32,
     let mut last = None;
     for request in reader.read() {
         last = Some((request.tile_x, request.tile_y));
+    }
+    last
+}
+
+fn last_focus_request(
+    reader: &mut MessageReader<ViewportFocusRequest>,
+) -> Option<ViewportFocusRequest> {
+    let mut last = None;
+    for request in reader.read() {
+        last = Some(*request);
     }
     last
 }

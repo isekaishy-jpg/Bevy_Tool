@@ -1,15 +1,15 @@
 //! Panel stubs.
 
 use ::viewport::{
-    ViewportCameraMode, ViewportGoToTile, ViewportRect, ViewportService, ViewportUiInput,
-    ViewportWorldSettings,
+    ViewportCameraMode, ViewportFocusRequest, ViewportGoToTile, ViewportRect, ViewportService,
+    ViewportUiInput, ViewportWorldSettings,
 };
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use editor_core::autosave::{restore_backup, AutosaveSettings, RecoveryState};
-use editor_core::command_registry::{CommandRegistry, OverlayState};
+use editor_core::command_registry::{CommandRegistry, FocusSelectionRequest, OverlayState};
 use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
@@ -27,6 +27,8 @@ pub(crate) struct ViewportUiParams<'w> {
     camera_mode: ResMut<'w, ViewportCameraMode>,
     go_to_state: ResMut<'w, GoToTileState>,
     go_to_writer: MessageWriter<'w, ViewportGoToTile>,
+    focus_writer: MessageWriter<'w, ViewportFocusRequest>,
+    focus_request: ResMut<'w, FocusSelectionRequest>,
 }
 
 pub mod command_palette;
@@ -163,6 +165,12 @@ pub(crate) fn draw_root_panel(
     viewport.viewport_input.wants_keyboard = ctx.wants_keyboard_input();
     viewport_controls::sync_world_settings(&project_state, &mut viewport.viewport_world);
     viewport_controls::handle_go_to_shortcut(ctx, &mut viewport.go_to_state);
+    if viewport.focus_request.requested {
+        viewport
+            .focus_writer
+            .write(ViewportFocusRequest { world_point: None });
+        viewport.focus_request.requested = false;
+    }
 
     layout::sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
