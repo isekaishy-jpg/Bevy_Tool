@@ -255,9 +255,11 @@ mod tests {
     use world::schema::{ProjectManifest, RegionBounds, RegionManifest, WorldManifest};
 
     fn make_project(world_id: &str, regions: Vec<RegionManifest>) -> ProjectInfo {
-        let mut manifest = WorldManifest::default();
-        manifest.world_id = world_id.to_string();
-        manifest.regions = regions;
+        let manifest = WorldManifest {
+            world_id: world_id.to_string(),
+            regions,
+            ..Default::default()
+        };
 
         ProjectInfo {
             root: PathBuf::from("root"),
@@ -273,8 +275,9 @@ mod tests {
 
     #[test]
     fn set_active_region_none_project_clears_selection() {
-        let mut active = ActiveRegion::default();
-        active.region_id = Some("region_0".to_string());
+        let mut active = ActiveRegion {
+            region_id: Some("region_0".to_string()),
+        };
         set_active_region(&mut active, None);
         assert!(active.region_id.is_none());
     }
