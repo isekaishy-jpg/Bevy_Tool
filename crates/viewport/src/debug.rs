@@ -2,7 +2,7 @@ use bevy::math::primitives::InfinitePlane3d;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::{EditorViewportCamera, ViewportService};
+use crate::{EditorViewportCamera, ViewportInputState, ViewportService};
 
 #[derive(Resource, Debug, Clone, Copy, Default)]
 pub struct ViewportDebugSettings {
@@ -12,11 +12,15 @@ pub struct ViewportDebugSettings {
 pub fn draw_viewport_ray_hit_marker(
     debug: Res<ViewportDebugSettings>,
     service: Res<ViewportService>,
+    input_state: Res<ViewportInputState>,
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform), With<EditorViewportCamera>>,
     mut gizmos: Gizmos,
 ) {
     if !debug.show_ray_hit_marker {
+        return;
+    }
+    if !input_state.hovered {
         return;
     }
     let Ok(window) = windows.single() else {

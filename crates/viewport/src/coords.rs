@@ -105,4 +105,16 @@ mod tests {
             .unwrap();
         assert_vec2_approx(ndc_max, Vec2::new(1.0, -1.0));
     }
+
+    #[test]
+    fn screen_to_local_physical_handles_fractional_scale() {
+        let logical = Rect::from_corners(Vec2::ZERO, Vec2::new(100.0, 100.0));
+        let rect = ViewportRect::from_logical_rect(logical, logical, 1.5);
+        let service = service_with_rect(rect);
+
+        let local = service
+            .screen_to_viewport_local_physical(Vec2::new(10.0, 20.0))
+            .unwrap();
+        assert_eq!(local, Vec2::new(15.0, 30.0));
+    }
 }

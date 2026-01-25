@@ -83,7 +83,7 @@ CHECKLIST 04 is **done** when all milestones (04.0–04.7) meet their respective
 - [x] Go To Tile:
   - [x] clamps or errors clearly when the request is out of bounds (no silent failure)
   - [x] never produces NaNs / invalid transforms
-- [ ] A small, fixed set of manual regression steps is documented in 04.7 and passes consistently.
+- [x] A small, fixed set of manual regression steps is documented in 04.7 and passes consistently.
 
 Notes
 - Go To Tile clamps against the active region bounds, warns inline + log when clamped, and errors if no active region is selected.
@@ -103,12 +103,12 @@ Notes
 - [x] Verification path:
   - [x] cast ray against a flat plane and render a hit marker (temporary, dev-only allowed)
 - [ ] Robustness:
-  - [ ] works under layout changes (docking, resizing)
-  - [ ] works under DPI changes
+  - [x] works under layout changes (docking, resizing)
+  - [x] works under DPI changes
 
 ### DoD
-- [ ] The hit marker lands where expected at multiple camera angles and zoom levels.
-- [ ] Leaving/entering the viewport (hover changes) does not produce spurious rays or stale hits.
+- [x] The hit marker lands where expected at multiple camera angles and zoom levels.
+- [x] Leaving/entering the viewport (hover changes) does not produce spurious rays or stale hits.
 
 Notes
 - The dev ground grid spacing scales with `tile_size_meters` after saving world settings; it is not the tile/chunk overlay (04.5).
@@ -311,6 +311,8 @@ Notes
 - [ ] Go To Tile: out-of-bounds requests clamp to active region bounds and emit a visible warning (no NaNs).
 - [ ] Go To Tile: no active region selected shows a clear error and does not move the camera.
 - [ ] Tool capture active: camera hotkeys and mouse camera controls are disabled until capture ends.
+- [x] Ray hit marker: verify placement at multiple camera angles and zoom levels.
+- [x] Ray hit marker: leaving/entering the viewport does not create stale hits.
 
 ### DoD
 - [ ] The regression scene exists, is easy to launch, and is referenced from developer docs/README.
