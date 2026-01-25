@@ -92,12 +92,14 @@ impl Default for ViewportCameraController {
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct ViewportWorldSettings {
     pub tile_size_meters: f32,
+    pub chunks_per_tile: u16,
 }
 
 impl Default for ViewportWorldSettings {
     fn default() -> Self {
         Self {
             tile_size_meters: 512.0,
+            chunks_per_tile: 16,
         }
     }
 }

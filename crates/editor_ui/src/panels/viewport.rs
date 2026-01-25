@@ -69,6 +69,8 @@ fn draw_viewport_header(
             ui.separator();
             ui.checkbox(&mut debug_settings.show_ray_hit_marker, "Ray Hit")
                 .on_hover_text("Draw a marker where the cursor ray hits the ground plane.");
+            ui.checkbox(&mut debug_settings.show_prop_debug, "Prop Debug")
+                .on_hover_text("Show a debug prop cube for picking tests.");
         });
     });
 }

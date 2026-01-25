@@ -3,7 +3,9 @@ use bevy::log::{info, warn};
 use bevy::prelude::Resource;
 use bevy_egui::egui;
 use editor_core::project::{ActiveRegion, ProjectState};
-use viewport::{ViewportGoToTile, ViewportWorldSettings};
+use viewport::{
+    ViewportGoToTile, ViewportRegionBounds, ViewportRegionContext, ViewportWorldSettings,
+};
 use world::schema::RegionBounds;
 
 #[derive(Resource, Debug, Default)]
@@ -22,8 +24,29 @@ pub fn sync_world_settings(
     if let Some(project) = &project_state.current {
         if let Some(world) = project.current_world() {
             world_settings.tile_size_meters = world.manifest.world_spec.tile_size_meters;
+            world_settings.chunks_per_tile = world.manifest.world_spec.chunks_per_tile;
         }
     }
+}
+
+pub fn sync_region_context(
+    project_state: &ProjectState,
+    active_region: &ActiveRegion,
+    region_context: &mut ViewportRegionContext,
+) {
+    let Some(region) = resolve_active_region(project_state, active_region) else {
+        region_context.clear();
+        return;
+    };
+
+    region_context.region_id = Some(region.region_id.clone());
+    region_context.region_name = Some(region.name.clone());
+    region_context.bounds = Some(ViewportRegionBounds::new(
+        region.bounds.min_x,
+        region.bounds.min_y,
+        region.bounds.max_x,
+        region.bounds.max_y,
+    ));
 }
 
 pub fn handle_go_to_shortcut(ctx: &egui::Context, state: &mut GoToTileState) {
@@ -127,6 +150,13 @@ fn active_region_bounds(
     project_state: &ProjectState,
     active_region: &ActiveRegion,
 ) -> Option<RegionBounds> {
+    resolve_active_region(project_state, active_region).map(|region| region.bounds)
+}
+
+fn resolve_active_region<'a>(
+    project_state: &'a ProjectState,
+    active_region: &ActiveRegion,
+) -> Option<&'a world::schema::RegionManifest> {
     let project = project_state.current.as_ref()?;
     let world = project.current_world()?;
     let regions = &world.manifest.regions;
@@ -136,11 +166,11 @@ fn active_region_bounds(
 
     if let Some(active_id) = active_region.region_id.as_deref() {
         if let Some(region) = regions.iter().find(|region| region.region_id == active_id) {
-            return Some(region.bounds);
+            return Some(region);
         }
     }
 
-    Some(regions[0].bounds)
+    regions.first()
 }
 
 fn clamp_to_bounds(tile_x: i32, tile_y: i32, bounds: RegionBounds) -> (i32, i32) {

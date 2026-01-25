@@ -2,7 +2,8 @@
 
 use ::viewport::{
     ViewportCameraMode, ViewportDebugSettings, ViewportFocusRequest, ViewportGoToTile,
-    ViewportInputState, ViewportRect, ViewportService, ViewportUiInput, ViewportWorldSettings,
+    ViewportInputState, ViewportRect, ViewportRegionContext, ViewportService, ViewportUiInput,
+    ViewportWorldSettings,
 };
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::SystemParam;
@@ -25,6 +26,7 @@ pub(crate) struct ViewportUiParams<'w> {
     viewport_input: ResMut<'w, ViewportUiInput>,
     viewport_state: Res<'w, ViewportInputState>,
     viewport_world: ResMut<'w, ViewportWorldSettings>,
+    viewport_region: ResMut<'w, ViewportRegionContext>,
     camera_mode: ResMut<'w, ViewportCameraMode>,
     viewport_debug: ResMut<'w, ViewportDebugSettings>,
     go_to_state: ResMut<'w, GoToTileState>,
@@ -185,6 +187,11 @@ pub(crate) fn draw_root_panel(
     viewport.viewport_input.wants_pointer = ctx.is_using_pointer();
     viewport.viewport_input.wants_keyboard = ctx.wants_keyboard_input();
     viewport_controls::sync_world_settings(&project.project_state, &mut viewport.viewport_world);
+    viewport_controls::sync_region_context(
+        &project.project_state,
+        &project.active_region,
+        &mut viewport.viewport_region,
+    );
     viewport_controls::handle_go_to_shortcut(ctx, &mut viewport.go_to_state);
     if viewport.focus_request.requested {
         viewport

@@ -122,32 +122,32 @@ Notes
 ### Requirements
 
 #### 04.4.1 World cursor service output
-- [ ] Produce a single authoritative `WorldCursor` payload when the mouse is inside the viewport:
-  - [ ] `has_hit: bool`
-  - [ ] `hit_pos_world: Vec3`
-  - [ ] `hit_normal_world: Vec3` (or fallback normal)
-  - [ ] `region_id/name` (placeholder acceptable until regions are real)
-  - [ ] `tile_x/tile_y`
-  - [ ] `chunk_x/chunk_y` (when chunking exists)
-  - [ ] `snap_pos_world` (equals hit until snapping exists)
-  - [ ] `snap_kind` (off/tile/chunk/subgrid)
+- [x] Produce a single authoritative `WorldCursor` payload when the mouse is inside the viewport:
+  - [x] `has_hit: bool`
+  - [x] `hit_pos_world: Vec3`
+  - [x] `hit_normal_world: Vec3` (or fallback normal)
+  - [x] `region_id/name` (placeholder acceptable until regions are real)
+  - [x] `tile_x/tile_y`
+  - [x] `chunk_x/chunk_y` (when chunking exists)
+  - [x] `snap_pos_world` (equals hit until snapping exists)
+  - [x] `snap_kind` (off/tile/chunk/subgrid)
 
 #### 04.4.2 Terrain picking v1
-- [ ] Raycast against debug plane initially.
-- [ ] Closest hit wins.
+- [x] Raycast against debug plane initially.
+- [x] Closest hit wins.
 
 #### 04.4.3 Prop picking v1
-- [ ] Raycast against prop bounds (AABB/OBB acceptable for v1).
-- [ ] Distinguish hover vs selection.
+- [x] Raycast against prop bounds (AABB/OBB acceptable for v1).
+- [x] Distinguish hover vs selection.
 
 #### 04.4.4 Stable ID selection model
-- [ ] Selection stores stable IDs (tile id now; entity ids later).
-- [ ] Handle missing/unloaded targets gracefully (clear with explicit feedback).
+- [x] Selection stores stable IDs (tile id now; entity ids later).
+- [x] Handle missing/unloaded targets gracefully (clear with explicit feedback).
 
 ### DoD
-- [ ] The “world cursor reticle” appears only when `has_hit` is true and the mouse is inside the viewport.
-- [ ] Hover never implicitly selects; selection is explicit.
-- [ ] Selection state survives camera motion and viewport resize without drift.
+- [x] The “world cursor reticle” appears only when `has_hit` is true and the mouse is inside the viewport.
+- [x] Hover never implicitly selects; selection is explicit.
+- [x] Selection state survives camera motion and viewport resize without drift.
 
 ---
 
@@ -313,6 +313,8 @@ Notes
 - [ ] Tool capture active: camera hotkeys and mouse camera controls are disabled until capture ends.
 - [x] Ray hit marker: verify placement at multiple camera angles and zoom levels.
 - [x] Ray hit marker: leaving/entering the viewport does not create stale hits.
+- [x] Prop debug cube: toggle on shows wireframe marker at (2, 0.5, 2).
+- [x] Prop debug cube: hover/click selects prop and logs selection set.
 
 ### DoD
 - [ ] The regression scene exists, is easy to launch, and is referenced from developer docs/README.

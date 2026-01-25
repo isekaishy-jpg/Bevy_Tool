@@ -97,6 +97,7 @@ pub struct NewWorldRequest {
     pub world_spec: WorldSpec,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn apply_project_commands(
     event: On<ProjectCommand>,
     mut state: ResMut<ProjectState>,
@@ -105,6 +106,7 @@ pub fn apply_project_commands(
     mut editor_state: ResMut<ProjectEditorStateResource>,
     mut active_region: ResMut<ActiveRegion>,
     mut recovery_state: ResMut<RecoveryState>,
+    mut commands: Commands,
 ) {
     match event.event() {
         ProjectCommand::Open { root } => match open_project(root.as_path(), &mut editor_state) {
@@ -114,6 +116,7 @@ pub fn apply_project_commands(
                 refresh_recovery_state(&mut recovery_state, &info.root);
                 state.current = Some(info);
                 set_active_region(&mut active_region, state.current.as_ref());
+                commands.trigger(crate::selection::SelectionCommand::ClearSelection);
                 state.last_error = None;
             }
             Err(err) => {
@@ -129,6 +132,7 @@ pub fn apply_project_commands(
                     clear_recovery_state(&mut recovery_state, &info.root);
                     state.current = Some(info);
                     set_active_region(&mut active_region, state.current.as_ref());
+                    commands.trigger(crate::selection::SelectionCommand::ClearSelection);
                     state.last_error = None;
                 }
                 Err(err) => {
@@ -155,6 +159,7 @@ pub fn apply_project_commands(
                     config.world_name = world.manifest.world_name.clone();
                     current.worlds.push(world);
                     set_active_region(&mut active_region, state.current.as_ref());
+                    commands.trigger(crate::selection::SelectionCommand::ClearSelection);
                     state.last_error = None;
                 }
                 Err(err) => {
@@ -210,6 +215,7 @@ pub fn apply_project_commands(
                 if current.current_world_id.as_deref() == Some(manifest.world_id.as_str()) {
                     config.world_name = manifest.world_name.clone();
                     set_active_region(&mut active_region, state.current.as_ref());
+                    commands.trigger(crate::selection::SelectionCommand::ClearSelection);
                 }
                 state.last_error = None;
             }
@@ -227,6 +233,7 @@ pub fn apply_project_commands(
                         config.world_name = world.manifest.world_name.clone();
                     }
                     set_active_region(&mut active_region, state.current.as_ref());
+                    commands.trigger(crate::selection::SelectionCommand::ClearSelection);
                 }
             }
         }

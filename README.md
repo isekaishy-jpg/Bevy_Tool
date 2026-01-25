@@ -1,13 +1,8 @@
 # MMO World Editor (Bevy 0.18 + egui)
 
-A multi-tool repository focused first on a World of Warcraft-style MMO world editor:
+An in-progress world editor for large, tiled MMO-style worlds. The long-term goal is a full authoring suite (terrain, liquids, props, streaming, export), with a focused viewport foundation first.
 
-- Large tiled open worlds (tile streaming)
-- Heightfield terrain sculpting
-- Texture/weightmap painting
-- Liquids authoring (lakes/rivers/oceans)
-- Props/doodads placement
-- Deterministic export pipeline + artifact-only runtime preview
+This repo is under active development. Expect breaking changes while the checklists evolve.
 
 ## Engine baseline
 
@@ -23,6 +18,14 @@ See `docs/ENGINE_BASELINE.md`.
 cargo run -p editor
 ```
 
+## Current focus
+
+- Viewport foundation (camera, input routing, picking groundwork, debug overlays)
+- World/region manifests and stable IDs
+- Streaming and authoring systems staged behind checklists
+
+See `docs/checklists/` for the source of truth on progress and requirements.
+
 ## Repository layout
 
 - `apps/editor`: Editor entrypoint
@@ -33,6 +36,14 @@ cargo run -p editor
 - `crates/editor_ui`: egui docking and panels
 - `crates/exporter`: Artifact build pipeline
 - `crates/preview`: Artifact-only preview mode
+
+## Development workflow
+
+- Format: `cargo fmt`
+- Lint: `cargo clippy --workspace --all-targets -- -D warnings`
+- Test: `cargo test`
+
+Manual regression steps for the viewport live in `docs/checklists/04_viewport.md`.
 
 ## Documentation
 

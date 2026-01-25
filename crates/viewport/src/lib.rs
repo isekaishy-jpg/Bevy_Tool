@@ -6,20 +6,29 @@ use bevy::prelude::*;
 
 pub mod camera;
 mod coords;
+mod cursor;
 mod debug;
 pub mod grid;
 pub mod input;
+mod props;
 pub mod service;
 
 pub use camera::{
     update_viewport_camera, CameraTuning, ViewportCameraController, ViewportCameraMode,
     ViewportFocusRequest, ViewportGoToTile, ViewportWorldSettings,
 };
+pub use cursor::{
+    update_world_cursor, SnapKind, ViewportRegionBounds, ViewportRegionContext, WorldCursor,
+};
 pub use debug::{draw_viewport_ray_hit_marker, ViewportDebugSettings};
 pub use grid::draw_ground_grid;
 pub use input::{
     log_viewport_capture_changes, update_viewport_input, ViewportCaptureChanged,
     ViewportCaptureRequest, ViewportCaptureSource, ViewportInputState, ViewportUiInput,
+};
+pub use props::{
+    draw_debug_prop_gizmo, sync_debug_prop_visibility, update_prop_hover, DebugPropMarker,
+    PropBounds, PropHoverState, PropPickable,
 };
 pub use service::{ViewportBackend, ViewportRect, ViewportService};
 
@@ -39,6 +48,9 @@ impl Plugin for ViewportPlugin {
             .init_resource::<ViewportCameraController>()
             .init_resource::<ViewportCameraMode>()
             .init_resource::<ViewportWorldSettings>()
+            .init_resource::<ViewportRegionContext>()
+            .init_resource::<WorldCursor>()
+            .init_resource::<PropHoverState>()
             .init_resource::<ViewportDebugSettings>()
             .add_message::<ViewportCaptureRequest>()
             .add_message::<ViewportCaptureChanged>()
@@ -52,8 +64,12 @@ impl Plugin for ViewportPlugin {
                     update_viewport_input,
                     log_viewport_capture_changes.after(update_viewport_input),
                     update_viewport_camera.after(update_viewport_input),
-                    draw_ground_grid.after(update_viewport_camera),
-                    draw_viewport_ray_hit_marker.after(draw_ground_grid),
+                    update_world_cursor.after(update_viewport_camera),
+                    sync_debug_prop_visibility.after(update_world_cursor),
+                    update_prop_hover.after(update_world_cursor),
+                    draw_ground_grid.after(update_prop_hover),
+                    draw_debug_prop_gizmo.after(draw_ground_grid),
+                    draw_viewport_ray_hit_marker.after(draw_debug_prop_gizmo),
                 ),
             );
     }
@@ -76,6 +92,18 @@ fn setup_viewport(mut commands: Commands, gizmo_store: Option<ResMut<GizmoConfig
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -1.1, -0.8, 0.0)),
+    ));
+
+    // TODO(04.x): Gate debug prop marker behind a dev-only toggle/feature once real props exist.
+    commands.spawn((
+        Transform::from_xyz(2.0, 0.5, 2.0),
+        GlobalTransform::default(),
+        Visibility::Hidden,
+        PropPickable {
+            instance_id: foundation::ids::InstanceId(1),
+            bounds: PropBounds::from_half_extents(Vec3::splat(0.5)),
+        },
+        DebugPropMarker,
     ));
 
     if let Some(mut gizmo_store) = gizmo_store {
