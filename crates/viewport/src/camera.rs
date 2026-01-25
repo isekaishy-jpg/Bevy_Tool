@@ -6,7 +6,7 @@ use bevy::input::mouse::{MouseButton, MouseMotion, MouseWheel};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use crate::{EditorViewportCamera, ViewportInputState};
+use crate::{EditorViewportCamera, ViewportCaptureSource, ViewportInputState};
 
 mod math;
 
@@ -152,6 +152,9 @@ pub fn update_viewport_camera(
     }
 
     let mode = *inputs.mode;
+    // Tool capture disables camera input to avoid conflicts with active tools.
+    let tool_captured = inputs.input_state.captured
+        && inputs.input_state.captor == Some(ViewportCaptureSource::Tool);
     if controller.active_mode != mode {
         apply_mode_transition(mode, &mut controller, &transform);
         controller.active_mode = mode;
@@ -184,7 +187,8 @@ pub fn update_viewport_camera(
 
     let altitude = current_altitude(mode, &controller);
 
-    if inputs.input_state.hotkeys_allowed {
+    let hotkeys_allowed = inputs.input_state.hotkeys_allowed && !tool_captured;
+    if hotkeys_allowed {
         match mode {
             ViewportCameraMode::Orbit => apply_keyboard_pan(
                 &inputs.keys,
@@ -210,7 +214,7 @@ pub fn update_viewport_camera(
         }
     }
 
-    if inputs.input_state.focused {
+    if inputs.input_state.focused && !tool_captured {
         match mode {
             ViewportCameraMode::Orbit => {
                 let alt_pressed =

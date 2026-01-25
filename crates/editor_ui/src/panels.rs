@@ -1,8 +1,8 @@
 //! Panel stubs.
 
 use ::viewport::{
-    ViewportCameraMode, ViewportFocusRequest, ViewportGoToTile, ViewportRect, ViewportService,
-    ViewportUiInput, ViewportWorldSettings,
+    ViewportCameraMode, ViewportDebugSettings, ViewportFocusRequest, ViewportGoToTile,
+    ViewportInputState, ViewportRect, ViewportService, ViewportUiInput, ViewportWorldSettings,
 };
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::SystemParam;
@@ -13,7 +13,7 @@ use editor_core::command_registry::{CommandRegistry, FocusSelectionRequest, Over
 use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
-use editor_core::project::ProjectState;
+use editor_core::project::{ActiveRegion, ProjectState};
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, Style, TabViewer};
 use serde::{Deserialize, Serialize};
@@ -23,12 +23,22 @@ pub(crate) struct ViewportUiParams<'w> {
     viewport_rect: ResMut<'w, ViewportRect>,
     viewport_service: ResMut<'w, ViewportService>,
     viewport_input: ResMut<'w, ViewportUiInput>,
+    viewport_state: Res<'w, ViewportInputState>,
     viewport_world: ResMut<'w, ViewportWorldSettings>,
     camera_mode: ResMut<'w, ViewportCameraMode>,
+    viewport_debug: ResMut<'w, ViewportDebugSettings>,
     go_to_state: ResMut<'w, GoToTileState>,
     go_to_writer: MessageWriter<'w, ViewportGoToTile>,
     focus_writer: MessageWriter<'w, ViewportFocusRequest>,
     focus_request: ResMut<'w, FocusSelectionRequest>,
+}
+
+#[derive(SystemParam)]
+pub(crate) struct ProjectUiParams<'w> {
+    project_state: ResMut<'w, ProjectState>,
+    active_region: ResMut<'w, ActiveRegion>,
+    prefs: ResMut<'w, EditorPrefs>,
+    project_ui: ResMut<'w, ProjectPanelState>,
 }
 
 pub mod command_palette;
@@ -59,11 +69,15 @@ struct EditorTabViewer<'a> {
     config: &'a EditorConfig,
     prefs: &'a mut EditorPrefs,
     project_ui: &'a mut ProjectPanelState,
+    active_region: &'a mut ActiveRegion,
     log_ui: &'a mut LogPanelState,
     overlays: &'a OverlayState,
     viewport_rect: &'a mut ViewportRect,
     viewport_service: &'a mut ViewportService,
+    viewport_input: &'a ViewportUiInput,
+    viewport_state: &'a ViewportInputState,
     camera_mode: &'a mut ViewportCameraMode,
+    viewport_debug: &'a mut ViewportDebugSettings,
 }
 
 impl<'a> TabViewer for EditorTabViewer<'a> {
@@ -83,13 +97,16 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         match tab {
             PanelId::Viewport => {
-                viewport::draw_viewport_panel(
-                    ui,
-                    self.overlays,
-                    self.viewport_rect,
-                    self.viewport_service,
-                    self.camera_mode,
-                );
+                let mut inputs = viewport::ViewportPanelInputs {
+                    overlays: self.overlays,
+                    viewport_rect: self.viewport_rect,
+                    viewport_service: self.viewport_service,
+                    viewport_input: self.viewport_input,
+                    viewport_state: self.viewport_state,
+                    camera_mode: self.camera_mode,
+                    debug_settings: self.viewport_debug,
+                };
+                viewport::draw_viewport_panel(ui, &mut inputs);
             }
             PanelId::Assets => {
                 ui.heading("Assets");
@@ -107,7 +124,13 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
                 ui.label("Select an entity to inspect.");
             }
             PanelId::World => {
-                project::draw_project_panel(ui, self.project_ui, self.project_state, self.prefs);
+                project::draw_project_panel(
+                    ui,
+                    self.project_ui,
+                    self.project_state,
+                    self.prefs,
+                    self.active_region,
+                );
             }
             PanelId::Console => {
                 logs::draw_log_panel(
@@ -145,16 +168,14 @@ pub(crate) fn draw_root_panel(
     config: Res<EditorConfig>,
     registry: Res<CommandRegistry>,
     overlays: Res<OverlayState>,
-    mut project_state: ResMut<ProjectState>,
     log_buffer: Option<Res<LogBuffer>>,
     autosave_settings: Res<AutosaveSettings>,
     mut recovery_state: ResMut<RecoveryState>,
-    mut prefs: ResMut<EditorPrefs>,
-    mut project_ui: ResMut<ProjectPanelState>,
     mut palette_state: ResMut<CommandPaletteState>,
     mut dock_layout: ResMut<DockLayout>,
     mut editor_state: ResMut<ProjectEditorStateResource>,
     mut log_ui: ResMut<LogPanelState>,
+    mut project: ProjectUiParams,
     mut viewport: ViewportUiParams,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -163,7 +184,7 @@ pub(crate) fn draw_root_panel(
 
     viewport.viewport_input.wants_pointer = ctx.is_using_pointer();
     viewport.viewport_input.wants_keyboard = ctx.wants_keyboard_input();
-    viewport_controls::sync_world_settings(&project_state, &mut viewport.viewport_world);
+    viewport_controls::sync_world_settings(&project.project_state, &mut viewport.viewport_world);
     viewport_controls::handle_go_to_shortcut(ctx, &mut viewport.go_to_state);
     if viewport.focus_request.requested {
         viewport
@@ -172,7 +193,7 @@ pub(crate) fn draw_root_panel(
         viewport.focus_request.requested = false;
     }
 
-    layout::sync_layout_with_project(&project_state, &editor_state, &mut dock_layout);
+    layout::sync_layout_with_project(&project.project_state, &editor_state, &mut dock_layout);
     command_palette::handle_command_palette_shortcuts(ctx, &mut palette_state);
     viewport.viewport_rect.invalidate();
     viewport.viewport_service.rect = *viewport.viewport_rect;
@@ -204,18 +225,18 @@ pub(crate) fn draw_root_panel(
                 ui.horizontal(|ui| {
                     ui.label("Recovery available");
                     if ui.button("Restore autosave").clicked() {
-                        if let Some(project) = &project_state.current {
-                            match restore_backup(&project.root, &backup.path) {
+                        if let Some(current_project) = &project.project_state.current {
+                            match restore_backup(&current_project.root, &backup.path) {
                                 Ok(_) => {
                                     recovery_state.dismissed = true;
-                                    project_ui.pending_commands.push(
+                                    project.project_ui.pending_commands.push(
                                         editor_core::project::ProjectCommand::Open {
-                                            root: project.root.clone(),
+                                            root: current_project.root.clone(),
                                         },
                                     );
                                 }
                                 Err(err) => {
-                                    project_state.last_error =
+                                    project.project_state.last_error =
                                         Some(format!("restore failed: {err}"));
                                 }
                             }
@@ -281,16 +302,20 @@ pub(crate) fn draw_root_panel(
         .frame(egui::Frame::NONE)
         .show(ctx, |ui| {
             let mut viewer = EditorTabViewer {
-                project_state: project_state.as_ref(),
+                project_state: project.project_state.as_ref(),
                 log_buffer: log_buffer.as_deref(),
                 config: &config,
-                prefs: &mut prefs,
-                project_ui: &mut project_ui,
+                prefs: &mut project.prefs,
+                project_ui: &mut project.project_ui,
+                active_region: &mut project.active_region,
                 log_ui: &mut log_ui,
                 overlays: overlays.as_ref(),
                 viewport_rect: &mut viewport.viewport_rect,
                 viewport_service: &mut viewport.viewport_service,
+                viewport_input: &viewport.viewport_input,
+                viewport_state: &viewport.viewport_state,
                 camera_mode: &mut viewport.camera_mode,
+                viewport_debug: &mut viewport.viewport_debug,
             };
             let style = Style::from_egui(ui.style().as_ref());
             DockArea::new(&mut dock_layout.dock_state)
@@ -299,10 +324,17 @@ pub(crate) fn draw_root_panel(
         });
 
     layout::persist_layout(&mut editor_state, &mut dock_layout);
-    for command in project_ui.pending_commands.drain(..) {
+    for command in project.project_ui.pending_commands.drain(..) {
         commands.trigger(command);
     }
 
     command_palette::draw_command_palette(ctx, &mut palette_state, &registry, &mut commands);
-    viewport_controls::draw_go_to_modal(ctx, &mut viewport.go_to_state, &mut viewport.go_to_writer);
+    let active_region_ref = project.active_region.as_ref();
+    viewport_controls::draw_go_to_modal(
+        ctx,
+        &mut viewport.go_to_state,
+        &mut viewport.go_to_writer,
+        &project.project_state,
+        active_region_ref,
+    );
 }

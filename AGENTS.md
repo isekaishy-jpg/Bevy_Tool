@@ -43,6 +43,7 @@
 
 ### Testing / Validation Checklist
 - If adding core logic, add at least one unit test.
+- Add/expand unit tests as behaviors stabilize or regressions are found.
 - For editor UX changes, add a smoke test path (manual steps ok).
 - Ensure debug output/log spam is avoided in hot loops.
 - Skip running shader_sandbox tests unless changes are in `crates/shader_sandbox`.

@@ -13,7 +13,7 @@ mod create;
 mod helpers;
 mod open;
 
-use create::create_new_project;
+use create::{create_new_project, create_new_world};
 use helpers::{ensure_world_regions, update_config, world_has_tiles};
 use open::open_project;
 
@@ -47,6 +47,11 @@ pub struct ProjectState {
     pub last_error: Option<String>,
 }
 
+#[derive(Resource, Debug, Clone, Default)]
+pub struct ActiveRegion {
+    pub region_id: Option<String>,
+}
+
 #[derive(Event)]
 pub enum ProjectCommand {
     Open {
@@ -55,6 +60,10 @@ pub enum ProjectCommand {
     Create {
         root: PathBuf,
         request: NewProjectRequest,
+    },
+    CreateWorld {
+        root: PathBuf,
+        request: NewWorldRequest,
     },
     UpdateProjectManifest {
         root: PathBuf,
@@ -79,12 +88,22 @@ pub struct NewProjectRequest {
     pub world_spec: WorldSpec,
 }
 
+#[derive(Debug, Clone)]
+pub struct NewWorldRequest {
+    pub world_name: String,
+    pub region_id: String,
+    pub region_name: String,
+    pub region_bounds: RegionBounds,
+    pub world_spec: WorldSpec,
+}
+
 pub fn apply_project_commands(
     event: On<ProjectCommand>,
     mut state: ResMut<ProjectState>,
     mut config: ResMut<EditorConfig>,
     mut prefs: ResMut<EditorPrefs>,
     mut editor_state: ResMut<ProjectEditorStateResource>,
+    mut active_region: ResMut<ActiveRegion>,
     mut recovery_state: ResMut<RecoveryState>,
 ) {
     match event.event() {
@@ -94,6 +113,7 @@ pub fn apply_project_commands(
                 prefs.record_project(&info.root, info.manifest.project_name.clone());
                 refresh_recovery_state(&mut recovery_state, &info.root);
                 state.current = Some(info);
+                set_active_region(&mut active_region, state.current.as_ref());
                 state.last_error = None;
             }
             Err(err) => {
@@ -108,11 +128,38 @@ pub fn apply_project_commands(
                     prefs.record_project(&info.root, info.manifest.project_name.clone());
                     clear_recovery_state(&mut recovery_state, &info.root);
                     state.current = Some(info);
+                    set_active_region(&mut active_region, state.current.as_ref());
                     state.last_error = None;
                 }
                 Err(err) => {
                     state.last_error = Some(format!("create project failed: {err}"));
                     warn!("create project failed: {err}");
+                }
+            }
+        }
+        ProjectCommand::CreateWorld { root, request } => {
+            let Some(current) = &mut state.current else {
+                state.last_error = Some("create world failed: no project open".to_string());
+                warn!("create world failed: no project open");
+                return;
+            };
+            if current.root != *root {
+                state.last_error = Some("create world failed: project mismatch".to_string());
+                warn!("create world failed: project mismatch");
+                return;
+            }
+            match create_new_world(root.as_path(), &current.manifest, request) {
+                Ok(world) => {
+                    current.current_world_id = Some(world.manifest.world_id.clone());
+                    editor_state.state.last_world_id = Some(world.manifest.world_id.clone());
+                    config.world_name = world.manifest.world_name.clone();
+                    current.worlds.push(world);
+                    set_active_region(&mut active_region, state.current.as_ref());
+                    state.last_error = None;
+                }
+                Err(err) => {
+                    state.last_error = Some(format!("create world failed: {err}"));
+                    warn!("create world failed: {err}");
                 }
             }
         }
@@ -162,6 +209,7 @@ pub fn apply_project_commands(
                 world.manifest = manifest.clone();
                 if current.current_world_id.as_deref() == Some(manifest.world_id.as_str()) {
                     config.world_name = manifest.world_name.clone();
+                    set_active_region(&mut active_region, state.current.as_ref());
                 }
                 state.last_error = None;
             }
@@ -178,8 +226,86 @@ pub fn apply_project_commands(
                     if let Some(world) = current.current_world() {
                         config.world_name = world.manifest.world_name.clone();
                     }
+                    set_active_region(&mut active_region, state.current.as_ref());
                 }
             }
         }
+    }
+}
+
+fn set_active_region(active_region: &mut ActiveRegion, project: Option<&ProjectInfo>) {
+    let Some(project) = project else {
+        active_region.region_id = None;
+        return;
+    };
+    let Some(world) = project.current_world() else {
+        active_region.region_id = None;
+        return;
+    };
+    active_region.region_id = world
+        .manifest
+        .regions
+        .first()
+        .map(|region| region.region_id.clone());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use world::schema::{ProjectManifest, RegionBounds, RegionManifest, WorldManifest};
+
+    fn make_project(world_id: &str, regions: Vec<RegionManifest>) -> ProjectInfo {
+        let mut manifest = WorldManifest::default();
+        manifest.world_id = world_id.to_string();
+        manifest.regions = regions;
+
+        ProjectInfo {
+            root: PathBuf::from("root"),
+            manifest: ProjectManifest::default(),
+            worlds: vec![WorldInfo {
+                root: PathBuf::from("root"),
+                manifest,
+                has_tiles: false,
+            }],
+            current_world_id: Some(world_id.to_string()),
+        }
+    }
+
+    #[test]
+    fn set_active_region_none_project_clears_selection() {
+        let mut active = ActiveRegion::default();
+        active.region_id = Some("region_0".to_string());
+        set_active_region(&mut active, None);
+        assert!(active.region_id.is_none());
+    }
+
+    #[test]
+    fn set_active_region_empty_regions_clears_selection() {
+        let project = make_project("world_0", Vec::new());
+        let mut active = ActiveRegion::default();
+        set_active_region(&mut active, Some(&project));
+        assert!(active.region_id.is_none());
+    }
+
+    #[test]
+    fn set_active_region_selects_first_region() {
+        let project = make_project(
+            "world_0",
+            vec![
+                RegionManifest {
+                    region_id: "region_a".to_string(),
+                    name: "Region A".to_string(),
+                    bounds: RegionBounds::new(0, 0, 1, 1),
+                },
+                RegionManifest {
+                    region_id: "region_b".to_string(),
+                    name: "Region B".to_string(),
+                    bounds: RegionBounds::new(0, 0, 1, 1),
+                },
+            ],
+        );
+        let mut active = ActiveRegion::default();
+        set_active_region(&mut active, Some(&project));
+        assert_eq!(active.region_id.as_deref(), Some("region_a"));
     }
 }

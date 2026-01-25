@@ -1,6 +1,6 @@
 use bevy_egui::egui;
 use editor_core::prefs::EditorPrefs;
-use editor_core::project::ProjectState;
+use editor_core::project::{ActiveRegion, ProjectState};
 
 use super::ProjectPanelState;
 
@@ -14,6 +14,7 @@ pub fn draw_project_panel(
     state: &mut ProjectPanelState,
     project_state: &ProjectState,
     prefs: &mut EditorPrefs,
+    active_region: &mut ActiveRegion,
 ) {
     ui.heading("Project");
     ui.separator();
@@ -24,7 +25,7 @@ pub fn draw_project_panel(
     }
 
     if let Some(info) = &project_state.current {
-        active::draw_active_project(ui, state, info);
+        active::draw_active_project(ui, state, info, active_region);
         ui.separator();
     } else {
         ui.label("No project open.");

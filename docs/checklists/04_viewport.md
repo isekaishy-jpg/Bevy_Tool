@@ -1,190 +1,317 @@
-# CHECKLIST 04 — Viewport System v1 (Bevy 0.18 + egui)
+# CHECKLIST 04 — Viewport System v1 (Single Source of Truth)
 
-Purpose: Establish a production-grade viewport foundation (layout plumbing, focus gating, camera, coordinate conversions, picking, gizmos, overlays) so CL5+ (terrain/liquids/props/streaming UX) are executable and testable.
-
-Non-goal (v1): render-to-texture / multiple simultaneous viewports. We will preserve a backend seam for it.
-
----
-
-## Milestone 04.0 — Viewport plumbing (egui layout → camera viewport)
-
-### 04.0.1 Viewport rect resource
-- [x] Add `ViewportRect` resource:
-  - [x] logical rect (egui points)
-  - [x] physical rect (pixels)
-  - [x] dpi scale factor
-  - [x] “is_valid” flag (viewport exists and non-zero)
-
-### 04.0.2 Derive viewport rect from UI layout
-- [x] In the egui layout pass, compute the remaining center rect after panels/docking
-- [x] Write to `ViewportRect` every frame
-- [x] Clamp within window bounds and avoid negative sizes
-
-### 04.0.3 Apply Bevy camera viewport
-- [x] Tag the “editor viewport camera” entity (e.g., `EditorViewportCamera`)
-- [x] After UI layout, set `Camera.viewport = Some(Viewport { physical_position, physical_size, .. })`
-- [x] Handle resize + dpi changes correctly
-- [x] Add a debug overlay toggle to draw the viewport rect outline (optional but useful)
-
-### 04.0.4 Backend seam (future-proof)
-- [x] Introduce `ViewportBackend` enum or trait surface:
-  - [x] `CameraViewport` (default)
-  - [x] `RenderToTexture` (future)
-- [x] All tools query viewport geometry through a single `ViewportService` API (no ad hoc math spread around)
-
-**Acceptance**
-- 3D rendering is confined to the viewport region; it never draws under egui panels.
-- The viewport rect updates correctly when panels are resized/docked/undocked.
+This checklist consolidates all viewport work into one file. Every item below is **in scope** for v1.
+If an item is not listed here, it is **out of scope**.
 
 ---
 
-## Milestone 04.1 — Input focus policy (UI vs viewport)
+## Global Definition of Done
 
-- [x] UI consumes input first
-- [x] Viewport only acts when hovered/focused (cursor inside `ViewportRect`)
-- [x] Tool capture semantics:
-  - [x] LMB drag captures pointer for the active tool
-  - [x] Capture releases on mouse up
-- [x] Escape cancels current tool interaction and releases capture
-- [x] Keyboard routing:
-  - [x] When viewport focused, camera hotkeys work
-  - [x] When UI has text focus, viewport hotkeys do not fire
+CHECKLIST 04 is **done** when all milestones (04.0–04.7) meet their respective DoD and:
 
-**Acceptance**
-- No “UI vs camera fight” under any combination of panel hover, drag, scroll.
-
----
-
-## Milestone 04.2 — RTS/orbit camera (MMO editor grade)
-
-- [x] Pan (WASD and/or middle-drag)
-- [x] Zoom with altitude scaling (speed increases with height)
-- [x] Optional orbit (Alt+LMB or similar)
-- [x] Frame selection (F)
-- [x] Jump to tile coords (Go To…)
-- [x] Camera speed presets (slow/normal/fast)
-- [x] Safety clamps:
-  - [x] min altitude above terrain
-  - [x] pitch clamp (avoid flipping)
-
-**Acceptance**
-- You can traverse a 255×255-tile region comfortably and precisely.
-
----
-
-## Milestone 04.3 — Viewport coordinate conversions (foundation for tools)
-
-### 04.3.1 Screen → viewport local coordinates
-- [ ] Convert cursor position to viewport-local physical pixels (subtract viewport origin)
-- [ ] Reject if outside viewport
-
-### 04.3.2 Viewport local → normalized device coordinates
-- [ ] Map viewport-local pixels to NDC ([-1, 1] range)
-- [ ] Verify correctness under DPI scaling
-
-### 04.3.3 Viewport local → world ray
-- [ ] Implement `viewport_ray(cursor_pos) -> Ray3d` (or equivalent):
-  - [ ] uses camera + projection + viewport rect
-- [ ] Add a debug “ray hit marker” option (e.g., ray-plane intersection) for verification
-
-**Acceptance**
-- Ray origin/direction are stable regardless of panel sizes and DPI.
-
----
-
-## Milestone 04.4 — Picking and selection
-
-### 04.4.1 Terrain picking (v1)
-- [ ] Raycast against:
-  - [ ] debug ground plane first (for validation)
-  - [ ] heightfield (once terrain exists)
-- [ ] Return hit payload:
-  - [ ] world position
-  - [ ] normal (if available)
-  - [ ] tile_id / chunk_id (when terrain model is present)
-
-### 04.4.2 Prop picking (v1)
-- [ ] Raycast against prop bounds (AABB/OBB)
-- [ ] Prioritize closest hit
-- [ ] Hover highlight and selection highlight
-
-### 04.4.3 Stable ID selection model
-- [ ] Selection stores stable IDs (tile/chunk/instance ids)
-- [ ] Selection remains valid across unload/reload:
-  - [ ] If unloaded, show “ghost selection” state
-  - [ ] If deleted, selection clears with a log entry
-
-**Acceptance**
-- Selection is stable and does not drift when streaming/unloading occurs later.
-
----
-
-## Milestone 04.5 — Gizmos and snapping
-
-- [ ] Translate gizmo
-- [ ] Rotate gizmo
-- [ ] Snapping:
-  - [ ] Grid snap
-  - [ ] Angle snap
-  - [ ] Surface snap to terrain (for placement)
-- [ ] Gizmo respects focus policy and capture semantics
-
-**Acceptance**
-- Gizmo drag is precise and never competes with UI interactions.
-
----
-
-## Milestone 04.6 — Viewport overlays (must-have for MMO-scale work)
-
-- [ ] Tile boundary overlay
-- [ ] Chunk boundary overlay
-- [ ] Cursor readout:
-  - [ ] world position
-  - [ ] tile x/y
-  - [ ] chunk x/y
-- [ ] Toggle overlay visibility (hotkeys and/or UI)
-- [ ] Streaming overlay hook points (no streaming required yet):
-  - [ ] “loaded vs unloaded” tile tinting interface stub
-  - [ ] “pinned tiles” visualization stub
-
-**Acceptance**
-- You can visually confirm which tile/chunk you are editing at all times.
-
----
-
-## Milestone 04.7 — Viewport diagnostics and regression gates
-
-- [ ] Add a “Viewport Test Scene” mode (dev-only) that:
-  - [ ] draws a grid/plane
-  - [ ] shows a click marker at ray hit
-  - [ ] prints viewport rect and cursor coords
-- [ ] Add at least one automated test for rect conversion (logical→physical) if your architecture allows
-- [ ] Add one manual regression checklist:
-  - [ ] DPI scaling on/off
-  - [ ] resizing left/right panels
-  - [ ] docking layout changes
+- [ ] All behaviors are stable under:
   - [ ] window resize
-
-**Acceptance**
-- Viewport picking stays correct under layout changes.
-
----
-
-## Milestone 04.8 — Multi-viewport forward path (design-only, no implementation)
-
-- [ ] Document (short) how we will support:
-  - [ ] render-to-texture backend
-  - [ ] multiple view panes (perspective/ortho)
-  - [ ] thumbnail previews
-- [ ] Confirm `ViewportService` API is sufficient for these futures
-
-**Acceptance**
-- Switching to RTT later is a backend swap, not a rewrite of tools.
+  - [ ] viewport panel resize
+  - [ ] docking/layout changes
+  - [ ] DPI / scale factor changes
+- [ ] Input routing is deterministic (no “double-consume” between UI and viewport).
+- [ ] All debug/overlay features are gated behind a master toggle and do not impose measurable cost when disabled.
+- [ ] A dev regression scene exists and is referenced from this checklist (see 04.7).
+- [ ] Docs:
+  - [ ] This checklist reflects the actual implementation (no “paper requirements”).
+  - [ ] Any new public types/resources/commands are documented where they live.
 
 ---
 
-## Final Acceptance (CL4)
-- Camera and UI never fight; selection survives future streaming unload/reload.
-- Viewport renders only in the UI’s viewport region.
-- Cursor → ray → hit math remains correct as UI panels move/resize.
-- Terrain/prop picking and gizmos are functional enough to begin CL5 terrain work.
+## 04.0 Viewport plumbing (egui layout → camera viewport)
+
+**Goal:** A stable, UI-driven viewport rectangle that correctly configures the Bevy camera viewport.
+
+### Requirements
+- [x] Maintain a `ViewportRect` resource with:
+  - [x] logical origin/size (egui points)
+  - [x] physical origin/size (pixels)
+  - [x] `scale_factor`
+  - [x] `is_valid`
+- [x] Derive `ViewportRect` from UI layout every frame.
+- [x] Apply the rect to the Bevy camera viewport correctly (including resize/DPI changes).
+- [x] Provide a UI-agnostic `ViewportService` boundary:
+  - [x] editor UI writes rect
+  - [x] viewport crate consumes rect
+  - [x] other systems read from `ViewportService` (not UI internals)
+
+### DoD
+- [x] Moving/resizing/docking the viewport panel never breaks camera viewport placement.
+- [x] `ViewportRect.is_valid` is false whenever the viewport is non-renderable (zero size, not visible, etc.).
+- [x] A one-line on-screen debug readout (dev-only is fine) shows rect + scale factor for verification.
+
+---
+
+## 04.1 Input focus policy (UI vs viewport)
+
+**Goal:** Deterministic routing between UI widgets and viewport interactions.
+
+### Requirements
+- [x] UI consumes input first.
+- [x] Viewport only acts when hovered/focused.
+- [x] Capture semantics:
+  - [x] mouse drag operations capture until release
+  - [x] Escape cancels/clears capture (and cancels current tool interaction if any)
+- [x] Keyboard routing:
+  - [x] viewport hotkeys only when viewport focused (or when explicitly allowed by design)
+
+### DoD
+- [x] There is no state where both UI and viewport respond to the same click/drag.
+- [x] Escape reliably exits any capture mode and returns to a neutral state.
+- [x] A small dev-only HUD line indicates current focus/capture state (UI-focused, viewport-hovered, viewport-captured).
+
+---
+
+## 04.2 Camera (RTS/orbit, MMO editor grade)
+
+**Goal:** A practical editor camera that supports large-scale world authoring.
+
+### Requirements
+- [x] Pan/orbit/zoom with speed scaling.
+- [x] Frame selection / focus point.
+- [x] Go To Tile navigation.
+- [x] Safety clamps (e.g., min height, max pitch).
+- [x] Clear “camera mode” vs “tool mode” behavior.
+
+### DoD
+- [x] Camera controls remain correct under viewport rect changes (04.0).
+- [x] Go To Tile:
+  - [x] clamps or errors clearly when the request is out of bounds (no silent failure)
+  - [x] never produces NaNs / invalid transforms
+- [ ] A small, fixed set of manual regression steps is documented in 04.7 and passes consistently.
+
+Notes
+- Go To Tile clamps against the active region bounds, warns inline + log when clamped, and errors if no active region is selected.
+- Camera input is disabled while a tool has capture to avoid conflicts.
+
+---
+
+## 04.3 Viewport coordinate conversions (foundation for tools)
+
+**Goal:** Correct, testable conversions for all future picking and tool placement.
+
+### Requirements
+- [x] Convert:
+  - [x] screen → viewport-local pixels
+  - [x] viewport-local → NDC
+  - [x] viewport-local → world ray (camera origin + direction)
+- [x] Verification path:
+  - [x] cast ray against a flat plane and render a hit marker (temporary, dev-only allowed)
+- [ ] Robustness:
+  - [ ] works under layout changes (docking, resizing)
+  - [ ] works under DPI changes
+
+### DoD
+- [ ] The hit marker lands where expected at multiple camera angles and zoom levels.
+- [ ] Leaving/entering the viewport (hover changes) does not produce spurious rays or stale hits.
+
+Notes
+- The dev ground grid spacing scales with `tile_size_meters` after saving world settings; it is not the tile/chunk overlay (04.5).
+
+---
+
+## 04.4 World cursor, picking, and selection model
+
+**Goal:** One authoritative “world cursor” output and consistent selection semantics.
+
+### Requirements
+
+#### 04.4.1 World cursor service output
+- [ ] Produce a single authoritative `WorldCursor` payload when the mouse is inside the viewport:
+  - [ ] `has_hit: bool`
+  - [ ] `hit_pos_world: Vec3`
+  - [ ] `hit_normal_world: Vec3` (or fallback normal)
+  - [ ] `region_id/name` (placeholder acceptable until regions are real)
+  - [ ] `tile_x/tile_y`
+  - [ ] `chunk_x/chunk_y` (when chunking exists)
+  - [ ] `snap_pos_world` (equals hit until snapping exists)
+  - [ ] `snap_kind` (off/tile/chunk/subgrid)
+
+#### 04.4.2 Terrain picking v1
+- [ ] Raycast against debug plane initially.
+- [ ] Closest hit wins.
+
+#### 04.4.3 Prop picking v1
+- [ ] Raycast against prop bounds (AABB/OBB acceptable for v1).
+- [ ] Distinguish hover vs selection.
+
+#### 04.4.4 Stable ID selection model
+- [ ] Selection stores stable IDs (tile id now; entity ids later).
+- [ ] Handle missing/unloaded targets gracefully (clear with explicit feedback).
+
+### DoD
+- [ ] The “world cursor reticle” appears only when `has_hit` is true and the mouse is inside the viewport.
+- [ ] Hover never implicitly selects; selection is explicit.
+- [ ] Selection state survives camera motion and viewport resize without drift.
+
+---
+
+## 04.5 Spatial context overlays (tile/chunk/sub-grid/bounds) + streaming hooks
+
+**Goal:** Make space legible and debuggable without rendering the full world.
+
+### Requirements
+
+#### 04.5.0 Overlay framework + toggles
+- [ ] Overlay toggles (panel/menu) for:
+  - [ ] cursor readout
+  - [ ] tile grid
+  - [ ] chunk grid
+  - [ ] sub-grid
+  - [ ] region bounds
+  - [ ] hover highlight
+  - [ ] selection highlight
+  - [ ] debug markers (ray hit, viewport rect)
+  - [ ] streaming visualization hooks (loaded/pending/dirty/pinned/error)
+- [ ] Hotkeys:
+  - [ ] master overlays on/off
+  - [ ] cycle snap level (coarse↔fine)
+  - [ ] cycle sub-grid spacing
+- [ ] Persist overlay settings in editor prefs.
+
+#### 04.5.1 Cursor readout
+- [ ] Only show when:
+  - [ ] mouse is inside viewport AND
+  - [ ] `WorldCursor.has_hit` is true
+- [ ] Readout includes:
+  - [ ] world pos
+  - [ ] region id/name
+  - [ ] tile coords
+  - [ ] chunk coords (when available)
+  - [ ] active tool
+  - [ ] snap mode + spacing
+
+#### 04.5.2 Tile grid overlay
+- [ ] Render scope is local (never full region). Choose and document exactly one:
+  - [ ] within radius around cursor, OR
+  - [ ] within radius around camera
+- [ ] Highlight hovered tile.
+- [ ] Alignment exactly matches tile coordinate system.
+
+#### 04.5.3 Chunk grid overlay
+- [ ] Same scoping rule as tile grid (local only).
+- [ ] Highlight hovered chunk when enabled.
+
+#### 04.5.4 Sub-grid overlay
+- [ ] Spacing levels: 32, 16, 8, 4, 2, 1 (default 8).
+- [ ] Anchor to a stable origin. Choose and document exactly one:
+  - [ ] world origin, OR
+  - [ ] region origin
+- [ ] Render scope is local (use the same scoping rule as tile/chunk).
+- [ ] LOD rules:
+  - [ ] far: hidden
+  - [ ] mid: chunk only
+  - [ ] near: chunk + sub-grid
+  - [ ] very near: allow 1m
+
+#### 04.5.5 Region bounds overlay + enforcement
+- [ ] Render region bounds.
+- [ ] Warn near edge/outside.
+- [ ] Enforce: tools cannot author outside bounds (block with clear message).
+
+#### 04.5.6 Hover + selection visualization
+- [ ] Hover highlight:
+  - [ ] tile
+  - [ ] chunk (when enabled)
+- [ ] Selection highlight:
+  - [ ] selected tile v1
+  - [ ] reserved path for entities later
+- [ ] Clear selection affordance:
+  - [ ] Esc clears selection
+  - [ ] click empty clears selection
+
+#### 04.5.7 Streaming visualization hooks
+- [ ] Tile state model (fed by streaming later):
+  - [ ] loaded
+  - [ ] pending_load
+  - [ ] dirty
+  - [ ] pinned
+  - [ ] error / quarantined
+- [ ] Visualization conventions:
+  - [ ] define precedence rules (e.g., error overrides dirty)
+  - [ ] outline vs fill rules
+- [ ] Provide an API surface for the streaming system to feed these states later.
+
+#### 04.5.8 Overlay performance gates
+- [ ] Overlays never iterate full region (e.g., never scan 255×255).
+- [ ] Debug counters:
+  - [ ] lines drawn
+  - [ ] tiles considered per frame
+- [ ] Enabling overlays does not cause large frame drops.
+
+### DoD
+- [ ] All overlays can be toggled independently and via a master toggle.
+- [ ] Overlay settings persist across restarts.
+- [ ] With overlays disabled, overlay systems do near-zero work (no large loops, no allocations).
+- [ ] With overlays enabled, scope limits are respected and counters confirm bounded work.
+
+---
+
+## 04.6 Snap system + gizmos
+
+**Goal:** Centralize snapping so gizmos and tools share one contract.
+
+### Requirements
+
+#### 04.6.1 Snap system
+- [ ] Snap modes:
+  - [ ] off
+  - [ ] tile snap
+  - [ ] chunk snap
+  - [ ] sub-grid snap (uses active sub-grid spacing)
+- [ ] Controls:
+  - [ ] cycle snap mode (coarse↔fine)
+  - [ ] cycle sub-grid spacing
+  - [ ] toggle snap on/off
+- [ ] Snap applies to:
+  - [ ] gizmo translation
+  - [ ] placement/move (future consumers)
+  - [ ] brush center alignment (future consumers)
+
+#### 04.6.2 Gizmos
+- [ ] Translate gizmo.
+- [ ] Rotate gizmo.
+- [ ] Gizmo respects focus/capture semantics.
+- [ ] Gizmo respects snap system where applicable.
+
+### DoD
+- [ ] Snapping behavior is consistent across:
+  - [ ] world cursor snapped position
+  - [ ] gizmo translation
+- [ ] Snap mode and spacing are visible in the cursor readout.
+- [ ] Changing snap settings never causes selection/tool state corruption.
+
+---
+
+## 04.7 Diagnostics and regression gates (viewport + overlays)
+
+**Goal:** Make viewport correctness non-negotiable and easy to verify.
+
+### Requirements
+- [ ] Dev-only “Viewport Regression Scene”:
+  - [ ] flat plane with known scale
+  - [ ] tile/chunk/sub-grid overlays + toggles
+  - [ ] cursor readout stable
+  - [ ] debug marker for ray hit point
+  - [ ] viewport rect debug marker
+  - [ ] panel resizing/docking does not break picking/overlays
+- [ ] Manual regression checklist is written here and kept current.
+
+### Manual regression checklist
+- [x] Resize the viewport panel in both directions; verify ray hit marker stays correct.
+- [x] Change docking/layout; verify viewport rect + hit marker stays correct.
+- [x] Toggle DPI/scale factor (or simulate); verify viewport rect and ray hit remain correct.
+- [x] Toggle overlays master on/off; verify bounded work counters.
+- [x] Enter/exit capture modes; verify Escape always returns to neutral.
+- [ ] Go To Tile: out-of-bounds requests clamp to active region bounds and emit a visible warning (no NaNs).
+- [ ] Go To Tile: no active region selected shows a clear error and does not move the camera.
+- [ ] Tool capture active: camera hotkeys and mouse camera controls are disabled until capture ends.
+
+### DoD
+- [ ] The regression scene exists, is easy to launch, and is referenced from developer docs/README.
+- [ ] The manual regression checklist above passes reliably.

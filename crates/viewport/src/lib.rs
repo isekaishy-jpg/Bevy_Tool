@@ -5,6 +5,8 @@ use bevy::gizmos::prelude::{DefaultGizmoConfigGroup, GizmoConfigStore};
 use bevy::prelude::*;
 
 pub mod camera;
+mod coords;
+mod debug;
 pub mod grid;
 pub mod input;
 pub mod service;
@@ -13,6 +15,7 @@ pub use camera::{
     update_viewport_camera, CameraTuning, ViewportCameraController, ViewportCameraMode,
     ViewportFocusRequest, ViewportGoToTile, ViewportWorldSettings,
 };
+pub use debug::{draw_viewport_ray_hit_marker, ViewportDebugSettings};
 pub use grid::draw_ground_grid;
 pub use input::{
     log_viewport_capture_changes, update_viewport_input, ViewportCaptureChanged,
@@ -36,6 +39,7 @@ impl Plugin for ViewportPlugin {
             .init_resource::<ViewportCameraController>()
             .init_resource::<ViewportCameraMode>()
             .init_resource::<ViewportWorldSettings>()
+            .init_resource::<ViewportDebugSettings>()
             .add_message::<ViewportCaptureRequest>()
             .add_message::<ViewportCaptureChanged>()
             .add_message::<ViewportFocusRequest>()
@@ -49,6 +53,7 @@ impl Plugin for ViewportPlugin {
                     log_viewport_capture_changes.after(update_viewport_input),
                     update_viewport_camera.after(update_viewport_input),
                     draw_ground_grid.after(update_viewport_camera),
+                    draw_viewport_ray_hit_marker.after(draw_ground_grid),
                 ),
             );
     }

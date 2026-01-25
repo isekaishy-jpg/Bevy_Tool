@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use world::schema::RegionBounds;
 
-use super::ProjectPanelState;
+use super::{NewWorldState, ProjectPanelState};
 
 pub(super) fn sync_from_project(
     state: &mut ProjectPanelState,
@@ -30,10 +30,26 @@ pub(super) fn sync_from_project(
         state.heightfield_samples = world.manifest.world_spec.heightfield_samples;
         state.weightmap_resolution = world.manifest.world_spec.weightmap_resolution;
         state.liquids_resolution = world.manifest.world_spec.liquids_resolution;
+
+        state.new_world.tile_size_meters = world.manifest.world_spec.tile_size_meters;
+        state.new_world.chunks_per_tile = world.manifest.world_spec.chunks_per_tile;
+        state.new_world.heightfield_samples = world.manifest.world_spec.heightfield_samples;
+        state.new_world.weightmap_resolution = world.manifest.world_spec.weightmap_resolution;
+        state.new_world.liquids_resolution = world.manifest.world_spec.liquids_resolution;
     }
 }
 
 pub(super) fn world_spec_from_state(state: &ProjectPanelState) -> world::schema::WorldSpec {
+    world::schema::WorldSpec {
+        tile_size_meters: state.tile_size_meters,
+        chunks_per_tile: state.chunks_per_tile,
+        heightfield_samples: state.heightfield_samples,
+        weightmap_resolution: state.weightmap_resolution,
+        liquids_resolution: state.liquids_resolution,
+    }
+}
+
+pub(super) fn world_spec_from_new_world(state: &NewWorldState) -> world::schema::WorldSpec {
     world::schema::WorldSpec {
         tile_size_meters: state.tile_size_meters,
         chunks_per_tile: state.chunks_per_tile,
@@ -93,6 +109,21 @@ pub(super) fn can_add_region(
         .regions
         .iter()
         .any(|region| region.region_id == region_id)
+}
+
+pub(super) fn can_create_world(state: &NewWorldState) -> bool {
+    let region_id = state.region_id.trim();
+    let region_name = state.region_name.trim();
+    if region_id.is_empty() || region_name.is_empty() {
+        return false;
+    }
+    let bounds = RegionBounds::new(
+        state.region_min_x,
+        state.region_min_y,
+        state.region_max_x,
+        state.region_max_y,
+    );
+    bounds.is_valid()
 }
 
 pub(super) fn can_create_project(state: &ProjectPanelState) -> bool {

@@ -53,3 +53,4 @@ All user operations should be expressed as commands:
 - Project root: `project.toml` + `.editor/` (editor-only state)
 - Worlds: `worlds/<world_id>/world.toml` (world spec + region registry)
 - Regions: `regions/<region_id>/tiles/x####_y####.tile` with defined bounds
+- Active selection: editor tracks a current world id and an active region id (runtime `ActiveRegion`) to scope viewport commands like Go To Tile and bounds clamping.

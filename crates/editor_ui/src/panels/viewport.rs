@@ -1,15 +1,22 @@
 use bevy::prelude::{Rect, Vec2};
 use bevy_egui::egui;
 use editor_core::command_registry::OverlayState;
-use viewport::{ViewportCameraMode, ViewportRect, ViewportService};
+use viewport::{
+    ViewportCameraMode, ViewportDebugSettings, ViewportInputState, ViewportRect, ViewportService,
+    ViewportUiInput,
+};
 
-pub fn draw_viewport_panel(
-    ui: &mut egui::Ui,
-    overlays: &OverlayState,
-    viewport_rect: &mut ViewportRect,
-    viewport_service: &mut ViewportService,
-    camera_mode: &mut ViewportCameraMode,
-) {
+pub struct ViewportPanelInputs<'a> {
+    pub overlays: &'a OverlayState,
+    pub viewport_rect: &'a mut ViewportRect,
+    pub viewport_service: &'a mut ViewportService,
+    pub viewport_input: &'a ViewportUiInput,
+    pub viewport_state: &'a ViewportInputState,
+    pub camera_mode: &'a mut ViewportCameraMode,
+    pub debug_settings: &'a mut ViewportDebugSettings,
+}
+
+pub fn draw_viewport_panel(ui: &mut egui::Ui, inputs: &mut ViewportPanelInputs) {
     let panel_rect = ui.max_rect();
     let header_height =
         (ui.spacing().interact_size.y + ui.spacing().item_spacing.y * 2.0).min(panel_rect.height());
@@ -23,25 +30,31 @@ pub fn draw_viewport_panel(
     );
     let screen_rect = ui.ctx().input(|input| input.content_rect());
     let scale_factor = ui.ctx().pixels_per_point();
-    draw_viewport_header(ui, header_rect, camera_mode);
+    draw_viewport_header(ui, header_rect, inputs.camera_mode, inputs.debug_settings);
     update_viewport_rect_from_egui(
         body_rect,
         screen_rect,
         scale_factor,
-        viewport_rect,
-        viewport_service,
+        inputs.viewport_rect,
+        inputs.viewport_service,
     );
-    if overlays.show_overlays {
-        if !egui_rect_is_finite(body_rect) {
-            return;
-        }
-        let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 200, 255));
-        ui.painter()
-            .rect_stroke(body_rect, 0.0, stroke, egui::StrokeKind::Inside);
+    if inputs.overlays.show_overlays {
+        draw_viewport_overlay(
+            ui,
+            body_rect,
+            inputs.viewport_rect,
+            inputs.viewport_input,
+            inputs.viewport_state,
+        );
     }
 }
 
-fn draw_viewport_header(ui: &mut egui::Ui, rect: egui::Rect, camera_mode: &mut ViewportCameraMode) {
+fn draw_viewport_header(
+    ui: &mut egui::Ui,
+    rect: egui::Rect,
+    camera_mode: &mut ViewportCameraMode,
+    debug_settings: &mut ViewportDebugSettings,
+) {
     if !egui_rect_is_finite(rect) {
         return;
     }
@@ -53,8 +66,68 @@ fn draw_viewport_header(ui: &mut egui::Ui, rect: egui::Rect, camera_mode: &mut V
             ui.separator();
             ui.selectable_value(camera_mode, ViewportCameraMode::Orbit, "Orbit");
             ui.selectable_value(camera_mode, ViewportCameraMode::FreeFly, "Free Fly");
+            ui.separator();
+            ui.checkbox(&mut debug_settings.show_ray_hit_marker, "Ray Hit")
+                .on_hover_text("Draw a marker where the cursor ray hits the ground plane.");
         });
     });
+}
+
+fn draw_viewport_overlay(
+    ui: &mut egui::Ui,
+    body_rect: egui::Rect,
+    viewport_rect: &ViewportRect,
+    viewport_input: &ViewportUiInput,
+    viewport_state: &ViewportInputState,
+) {
+    if !egui_rect_is_finite(body_rect) {
+        return;
+    }
+    let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 200, 255));
+    ui.painter()
+        .rect_stroke(body_rect, 0.0, stroke, egui::StrokeKind::Inside);
+
+    let logical = viewport_rect.logical_origin;
+    let logical_size = viewport_rect.logical_size;
+    let physical = viewport_rect.physical_origin;
+    let physical_size = viewport_rect.physical_size;
+    let rect_line = format!(
+        "viewport rect l=({:.1},{:.1}) sz=({:.1},{:.1}) p=({},{}) psz=({},{}) sf={:.2} valid={}",
+        logical.x,
+        logical.y,
+        logical_size.x,
+        logical_size.y,
+        physical.x,
+        physical.y,
+        physical_size.x,
+        physical_size.y,
+        viewport_rect.scale_factor,
+        viewport_rect.is_valid
+    );
+    let ui_focus = viewport_input.wants_pointer || viewport_input.wants_keyboard;
+    let focus_line = format!(
+        "focus ui={} hover={} captured={}",
+        ui_focus, viewport_state.hovered, viewport_state.captured
+    );
+
+    let font = egui::FontId::monospace(12.0);
+    let color = egui::Color32::from_white_alpha(210);
+    let start = body_rect.min + egui::vec2(6.0, 6.0);
+    let painter = ui.painter();
+    painter.text(
+        start,
+        egui::Align2::LEFT_TOP,
+        rect_line,
+        font.clone(),
+        color,
+    );
+    painter.text(
+        start + egui::vec2(0.0, 14.0),
+        egui::Align2::LEFT_TOP,
+        focus_line,
+        font,
+        color,
+    );
 }
 
 fn update_viewport_rect_from_egui(

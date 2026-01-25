@@ -37,6 +37,7 @@ impl Plugin for EditorCorePlugin {
 
         app.init_resource::<EditorConfig>();
         app.init_resource::<project::ProjectState>();
+        app.init_resource::<project::ActiveRegion>();
         app.init_resource::<autosave::AutosaveSettings>();
         app.init_resource::<autosave::AutosaveState>();
         app.init_resource::<autosave::RecoveryState>();
