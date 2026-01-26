@@ -272,31 +272,35 @@ Notes
 ### Requirements
 
 #### 04.6.1 Snap system
-- [ ] Snap modes:
-  - [ ] off
-  - [ ] tile snap
-  - [ ] chunk snap
-  - [ ] sub-grid snap (uses active sub-grid spacing)
-- [ ] Controls:
-  - [ ] cycle snap mode (coarse↔fine)
-  - [ ] cycle sub-grid spacing
-  - [ ] toggle snap on/off
+- [x] Snap modes:
+  - [x] off
+  - [x] tile snap
+  - [x] chunk snap
+  - [x] sub-grid snap (uses active sub-grid spacing)
+- [x] Controls:
+  - [x] cycle snap mode (coarse↔fine)
+  - [x] cycle sub-grid spacing
+  - [x] toggle snap on/off
 - [ ] Snap applies to:
-  - [ ] gizmo translation
+  - [x] gizmo translation
   - [ ] placement/move (future consumers)
   - [ ] brush center alignment (future consumers)
 
 #### 04.6.2 Gizmos
-- [ ] Translate gizmo.
+- [x] Translate gizmo.
 - [ ] Rotate gizmo.
-- [ ] Gizmo respects focus/capture semantics.
-- [ ] Gizmo respects snap system where applicable.
+- [x] Gizmo respects focus/capture semantics.
+- [x] Gizmo respects snap system where applicable.
+
+Notes
+- Translate gizmo appears for selected props; tiles are edited via tools.
+- Higher-quality gizmo is on hold pending a Bevy 0.18-compatible gizmo dependency.
 
 ### DoD
-- [ ] Snapping behavior is consistent across:
-  - [ ] world cursor snapped position
-  - [ ] gizmo translation
-- [ ] Snap mode and spacing are visible in the cursor readout.
+- [x] Snapping behavior is consistent across:
+  - [x] world cursor snapped position
+  - [x] gizmo translation
+- [x] Snap mode and spacing are visible in the cursor readout.
 - [ ] Changing snap settings never causes selection/tool state corruption.
 
 ---
@@ -328,6 +332,7 @@ Notes
 - [x] Ray hit marker: leaving/entering the viewport does not create stale hits.
 - [x] Prop debug cube: toggle on shows wireframe marker at (2, 0.5, 2).
 - [x] Prop debug cube: hover/click selects prop and logs selection set.
+- [ ] Translate gizmo: drag X/Z axis; verify movement respects snap mode and stays in bounds.
 
 ### DoD
 - [ ] The regression scene exists, is easy to launch, and is referenced from developer docs/README.
