@@ -48,6 +48,7 @@ Manual regression steps for the viewport live in `docs/checklists/04_viewport.md
 ## Documentation
 
 - `docs/checklists/`: Extensive checklists toward a finished product
+- `docs/CONTROLS.md`: Current editor controls and hotkeys
 - `docs/PRODUCT.md`: Product scope and definition of done
 - `docs/QUALITY_BAR.md`: Quality policies and acceptance criteria
 - `docs/WORLD_SPEC.md`: Concrete WoW-style world sizing defaults

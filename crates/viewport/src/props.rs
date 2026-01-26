@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use foundation::ids::InstanceId;
 
-use crate::{EditorViewportCamera, ViewportDebugSettings, ViewportInputState, ViewportService};
+use crate::{
+    EditorViewportCamera, ViewportDebugSettings, ViewportInputState, ViewportOverlayMaster,
+    ViewportOverlaySettings, ViewportService,
+};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct PropPickable {
@@ -126,28 +129,35 @@ pub fn update_prop_hover(
 }
 
 pub fn sync_debug_prop_visibility(
+    master: Res<ViewportOverlayMaster>,
+    overlay_settings: Res<ViewportOverlaySettings>,
     debug: Res<ViewportDebugSettings>,
+    added_props: Query<(), Added<DebugPropMarker>>,
     mut props: Query<&mut Visibility, With<DebugPropMarker>>,
 ) {
-    if !debug.is_changed() {
+    let has_added = !added_props.is_empty();
+    if !debug.is_changed() && !master.is_changed() && !overlay_settings.is_changed() && !has_added {
         return;
     }
-    let visibility = if debug.show_prop_debug {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
-    };
+    let visibility =
+        if master.enabled && overlay_settings.show_debug_markers && debug.show_prop_debug {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     for mut prop_visibility in &mut props {
         *prop_visibility = visibility;
     }
 }
 
 pub fn draw_debug_prop_gizmo(
+    master: Res<ViewportOverlayMaster>,
+    overlay_settings: Res<ViewportOverlaySettings>,
     debug: Res<ViewportDebugSettings>,
     props: Query<(&GlobalTransform, &PropPickable), With<DebugPropMarker>>,
     mut gizmos: Gizmos,
 ) {
-    if !debug.show_prop_debug {
+    if !master.enabled || !overlay_settings.show_debug_markers || !debug.show_prop_debug {
         return;
     }
     let color = Color::srgb(0.95, 0.35, 0.35);

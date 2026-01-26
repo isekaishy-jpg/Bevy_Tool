@@ -11,6 +11,7 @@ pub mod log_capture;
 pub mod prefs;
 pub mod project;
 pub mod selection;
+pub mod tools;
 
 #[derive(Resource)]
 pub struct EditorConfig {
@@ -47,6 +48,7 @@ impl Plugin for EditorCorePlugin {
         app.init_resource::<command_registry::OverlayState>();
         app.init_resource::<command_registry::FocusSelectionRequest>();
         app.init_resource::<selection::SelectionState>();
+        app.init_resource::<tools::ActiveTool>();
         app.insert_resource(command_registry::CommandRegistry::new_default());
         app.insert_resource(prefs);
         app.add_observer(project::apply_project_commands);

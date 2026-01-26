@@ -1,8 +1,12 @@
+use bevy::ecs::system::SystemParam;
 use bevy::math::primitives::InfinitePlane3d;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::{EditorViewportCamera, ViewportInputState, ViewportService, ViewportWorldSettings};
+use crate::{
+    EditorViewportCamera, ViewportInputState, ViewportOverlaySettings, ViewportService,
+    ViewportWorldSettings,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnapKind {
@@ -17,6 +21,8 @@ pub struct WorldCursor {
     pub has_hit: bool,
     pub hit_pos_world: Vec3,
     pub hit_normal_world: Vec3,
+    pub in_bounds: bool,
+    pub edge_distance_tiles: Option<i32>,
     pub region_id: Option<String>,
     pub region_name: Option<String>,
     pub tile_x: i32,
@@ -33,6 +39,8 @@ impl Default for WorldCursor {
             has_hit: false,
             hit_pos_world: Vec3::ZERO,
             hit_normal_world: Vec3::Y,
+            in_bounds: false,
+            edge_distance_tiles: None,
             region_id: None,
             region_name: None,
             tile_x: 0,
@@ -72,6 +80,14 @@ impl ViewportRegionBounds {
     pub fn contains_tile(&self, tile_x: i32, tile_y: i32) -> bool {
         tile_x >= self.min_x && tile_x <= self.max_x && tile_y >= self.min_y && tile_y <= self.max_y
     }
+
+    pub fn edge_distance(&self, tile_x: i32, tile_y: i32) -> i32 {
+        let dx_min = tile_x - self.min_x;
+        let dx_max = self.max_x - tile_x;
+        let dy_min = tile_y - self.min_y;
+        let dy_max = self.max_y - tile_y;
+        dx_min.min(dx_max).min(dy_min).min(dy_max)
+    }
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -89,24 +105,27 @@ impl ViewportRegionContext {
     }
 }
 
-pub fn update_world_cursor(
-    mut cursor: ResMut<WorldCursor>,
-    service: Res<ViewportService>,
-    input_state: Res<ViewportInputState>,
-    world_settings: Res<ViewportWorldSettings>,
-    region: Res<ViewportRegionContext>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform), With<EditorViewportCamera>>,
-) {
-    if !input_state.hovered {
+#[derive(SystemParam)]
+pub struct WorldCursorParams<'w, 's> {
+    service: Res<'w, ViewportService>,
+    input_state: Res<'w, ViewportInputState>,
+    world_settings: Res<'w, ViewportWorldSettings>,
+    overlay_settings: Res<'w, ViewportOverlaySettings>,
+    region: Res<'w, ViewportRegionContext>,
+    windows: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
+    cameras: Query<'w, 's, (&'static Camera, &'static GlobalTransform), With<EditorViewportCamera>>,
+}
+
+pub fn update_world_cursor(mut cursor: ResMut<WorldCursor>, params: WorldCursorParams) {
+    if !params.input_state.hovered {
         cursor.clear();
         return;
     }
-    let Ok(window) = windows.single() else {
+    let Ok(window) = params.windows.single() else {
         cursor.clear();
         return;
     };
-    let Ok((camera, camera_transform)) = cameras.single() else {
+    let Ok((camera, camera_transform)) = params.cameras.single() else {
         cursor.clear();
         return;
     };
@@ -114,7 +133,10 @@ pub fn update_world_cursor(
         cursor.clear();
         return;
     };
-    let Some(ray) = service.viewport_ray(cursor_pos, camera, camera_transform) else {
+    let Some(ray) = params
+        .service
+        .viewport_ray(cursor_pos, camera, camera_transform)
+    else {
         cursor.clear();
         return;
     };
@@ -127,36 +149,40 @@ pub fn update_world_cursor(
         cursor.clear();
         return;
     }
-    let Some((tile_x, tile_y)) = tile_coord_from_world(hit, world_settings.tile_size_meters) else {
+    let Some((tile_x, tile_y)) = tile_coord_from_world(hit, params.world_settings.tile_size_meters)
+    else {
         cursor.clear();
         return;
     };
-    if let Some(bounds) = region.bounds {
-        if !bounds.contains_tile(tile_x, tile_y) {
-            cursor.clear();
-            return;
+    let (in_bounds, edge_distance) = match params.region.bounds {
+        Some(bounds) => {
+            let distance = bounds.edge_distance(tile_x, tile_y);
+            (distance >= 0, Some(distance))
         }
-    }
+        None => (true, None),
+    };
     let (chunk_x, chunk_y) = chunk_coord_from_world(
         hit,
         tile_x,
         tile_y,
-        world_settings.tile_size_meters,
-        world_settings.chunks_per_tile,
+        params.world_settings.tile_size_meters,
+        params.world_settings.chunks_per_tile,
     )
     .unwrap_or((0, 0));
 
     cursor.has_hit = true;
     cursor.hit_pos_world = hit;
     cursor.hit_normal_world = Vec3::Y;
-    cursor.region_id = region.region_id.clone();
-    cursor.region_name = region.region_name.clone();
+    cursor.in_bounds = in_bounds;
+    cursor.edge_distance_tiles = edge_distance;
+    cursor.region_id = params.region.region_id.clone();
+    cursor.region_name = params.region.region_name.clone();
     cursor.tile_x = tile_x;
     cursor.tile_y = tile_y;
     cursor.chunk_x = chunk_x;
     cursor.chunk_y = chunk_y;
     cursor.snap_pos_world = hit;
-    cursor.snap_kind = SnapKind::Off;
+    cursor.snap_kind = params.overlay_settings.snap_kind;
 }
 
 fn tile_coord_from_world(position: Vec3, tile_size_meters: f32) -> Option<(i32, i32)> {
@@ -221,5 +247,12 @@ mod tests {
         let (chunk_x, chunk_y) = chunk_coord_from_world(pos, tile_x, tile_y, 100.0, 4).unwrap();
         assert_eq!((tile_x, tile_y), (1, 0));
         assert_eq!((chunk_x, chunk_y), (2, 2));
+    }
+
+    #[test]
+    fn edge_distance_is_negative_outside_bounds() {
+        let bounds = ViewportRegionBounds::new(0, 0, 4, 4);
+        assert!(bounds.edge_distance(2, 2) >= 0);
+        assert!(bounds.edge_distance(6, 2) < 0);
     }
 }

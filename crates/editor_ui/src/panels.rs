@@ -2,12 +2,14 @@
 
 use ::viewport::{
     ViewportCameraMode, ViewportDebugSettings, ViewportFocusRequest, ViewportGoToTile,
-    ViewportInputState, ViewportRect, ViewportRegionContext, ViewportService, ViewportUiInput,
-    ViewportWorldSettings,
+    ViewportInputState, ViewportOverlaySettings, ViewportOverlayStats, ViewportRect,
+    ViewportRegionContext, ViewportService, ViewportUiInput, ViewportWorldSettings, WorldCursor,
 };
+use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use bevy::time::{Real, Time};
 use bevy_egui::{egui, EguiContexts};
 use editor_core::autosave::{restore_backup, AutosaveSettings, RecoveryState};
 use editor_core::command_registry::{CommandRegistry, FocusSelectionRequest, OverlayState};
@@ -15,6 +17,7 @@ use editor_core::editor_state::ProjectEditorStateResource;
 use editor_core::log_capture::LogBuffer;
 use editor_core::prefs::EditorPrefs;
 use editor_core::project::{ActiveRegion, ProjectState};
+use editor_core::tools::ActiveTool;
 use editor_core::EditorConfig;
 use egui_dock::{DockArea, Style, TabViewer};
 use serde::{Deserialize, Serialize};
@@ -29,6 +32,14 @@ pub(crate) struct ViewportUiParams<'w> {
     viewport_region: ResMut<'w, ViewportRegionContext>,
     camera_mode: ResMut<'w, ViewportCameraMode>,
     viewport_debug: ResMut<'w, ViewportDebugSettings>,
+    overlay_settings: ResMut<'w, ViewportOverlaySettings>,
+    overlay_stats: Res<'w, ViewportOverlayStats>,
+    world_cursor: Res<'w, WorldCursor>,
+    active_tool: Res<'w, ActiveTool>,
+    diagnostics: Res<'w, DiagnosticsStore>,
+    overlay_panel: ResMut<'w, viewport_overlay_options::ViewportOverlayPanelState>,
+    hud_state: ResMut<'w, viewport_overlay_hud::ViewportOverlayHudState>,
+    time: Res<'w, Time<Real>>,
     go_to_state: ResMut<'w, GoToTileState>,
     go_to_writer: MessageWriter<'w, ViewportGoToTile>,
     focus_writer: MessageWriter<'w, ViewportFocusRequest>,
@@ -49,6 +60,8 @@ pub mod logs;
 pub mod project;
 pub mod viewport;
 pub mod viewport_controls;
+pub mod viewport_overlay_hud;
+pub mod viewport_overlay_options;
 pub use command_palette::CommandPaletteState;
 pub use layout::DockLayout;
 pub use logs::LogPanelState;
@@ -80,6 +93,15 @@ struct EditorTabViewer<'a> {
     viewport_state: &'a ViewportInputState,
     camera_mode: &'a mut ViewportCameraMode,
     viewport_debug: &'a mut ViewportDebugSettings,
+    overlay_settings: &'a mut ViewportOverlaySettings,
+    overlay_stats: &'a ViewportOverlayStats,
+    world_cursor: &'a WorldCursor,
+    active_tool: &'a ActiveTool,
+    viewport_world: &'a ViewportWorldSettings,
+    diagnostics: &'a DiagnosticsStore,
+    overlay_panel: &'a mut viewport_overlay_options::ViewportOverlayPanelState,
+    hud_state: &'a mut viewport_overlay_hud::ViewportOverlayHudState,
+    time: &'a Time<Real>,
 }
 
 impl<'a> TabViewer for EditorTabViewer<'a> {
@@ -107,6 +129,15 @@ impl<'a> TabViewer for EditorTabViewer<'a> {
                     viewport_state: self.viewport_state,
                     camera_mode: self.camera_mode,
                     debug_settings: self.viewport_debug,
+                    overlay_settings: self.overlay_settings,
+                    overlay_stats: self.overlay_stats,
+                    world_cursor: self.world_cursor,
+                    active_tool: self.active_tool,
+                    world_settings: self.viewport_world,
+                    diagnostics: self.diagnostics,
+                    overlay_panel: self.overlay_panel,
+                    hud_state: self.hud_state,
+                    time: self.time,
                 };
                 viewport::draw_viewport_panel(ui, &mut inputs);
             }
@@ -184,8 +215,6 @@ pub(crate) fn draw_root_panel(
         return;
     };
 
-    viewport.viewport_input.wants_pointer = ctx.is_using_pointer();
-    viewport.viewport_input.wants_keyboard = ctx.wants_keyboard_input();
     viewport_controls::sync_world_settings(&project.project_state, &mut viewport.viewport_world);
     viewport_controls::sync_region_context(
         &project.project_state,
@@ -323,6 +352,15 @@ pub(crate) fn draw_root_panel(
                 viewport_state: &viewport.viewport_state,
                 camera_mode: &mut viewport.camera_mode,
                 viewport_debug: &mut viewport.viewport_debug,
+                overlay_settings: &mut viewport.overlay_settings,
+                overlay_stats: &viewport.overlay_stats,
+                world_cursor: &viewport.world_cursor,
+                active_tool: &viewport.active_tool,
+                viewport_world: &viewport.viewport_world,
+                diagnostics: &viewport.diagnostics,
+                overlay_panel: &mut viewport.overlay_panel,
+                hud_state: &mut viewport.hud_state,
+                time: &viewport.time,
             };
             let style = Style::from_egui(ui.style().as_ref());
             DockArea::new(&mut dock_layout.dock_state)
@@ -344,4 +382,13 @@ pub(crate) fn draw_root_panel(
         &project.project_state,
         active_region_ref,
     );
+}
+
+pub fn sync_viewport_ui_input(mut contexts: EguiContexts, mut ui_input: ResMut<ViewportUiInput>) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+    let popup_open = egui::Popup::is_any_open(ctx);
+    ui_input.wants_pointer = ctx.is_pointer_over_area() || ctx.is_using_pointer() || popup_open;
+    ui_input.wants_keyboard = ctx.wants_keyboard_input();
 }

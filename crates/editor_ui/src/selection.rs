@@ -3,9 +3,10 @@ use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
 use editor_core::project::ProjectState;
-use editor_core::selection::SelectionCommand;
+use editor_core::selection::{SelectionCommand, SelectionState, SelectionTarget};
 use viewport::{
-    PropHoverState, ViewportCaptureSource, ViewportInputState, ViewportUiInput, WorldCursor,
+    PropHoverState, ViewportCaptureSource, ViewportInputState, ViewportSelectionState,
+    ViewportUiInput, WorldCursor,
 };
 
 #[derive(Resource, Debug, Default)]
@@ -16,6 +17,7 @@ pub struct SelectionInputState {
 #[allow(clippy::too_many_arguments)]
 pub fn update_viewport_selection(
     mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     ui_input: Res<ViewportUiInput>,
     input_state: Res<ViewportInputState>,
@@ -24,6 +26,11 @@ pub fn update_viewport_selection(
     project_state: Res<ProjectState>,
     mut state: ResMut<SelectionInputState>,
 ) {
+    if keys.just_pressed(KeyCode::Escape) && input_state.hotkeys_allowed {
+        commands.trigger(SelectionCommand::ClearSelection);
+        state.pending_click = false;
+    }
+
     if input_state.captured && input_state.captor == Some(ViewportCaptureSource::Tool) {
         state.pending_click = false;
         return;
@@ -51,7 +58,7 @@ pub fn update_viewport_selection(
                         region_id,
                         instance_id: hit.instance_id,
                     });
-                } else if cursor.has_hit {
+                } else if cursor.has_hit && cursor.in_bounds {
                     commands.trigger(SelectionCommand::SelectTile {
                         world_id,
                         region_id,
@@ -70,5 +77,30 @@ pub fn update_viewport_selection(
 
     if !mouse_buttons.pressed(MouseButton::Left) && !input_state.hovered {
         state.pending_click = false;
+    }
+}
+
+pub fn sync_viewport_selection_overlay(
+    selection: Res<SelectionState>,
+    mut overlay_selection: ResMut<ViewportSelectionState>,
+) {
+    let mut selected_tile = None;
+    let mut selected_prop = None;
+    if let Some(target) = selection.selected.as_ref() {
+        match target {
+            SelectionTarget::Tile { tile_id, .. } => {
+                selected_tile = Some(tile_id.coord);
+            }
+            SelectionTarget::Prop { instance_id, .. } => {
+                selected_prop = Some(*instance_id);
+            }
+        }
+    }
+
+    if overlay_selection.selected_tile != selected_tile
+        || overlay_selection.selected_prop != selected_prop
+    {
+        overlay_selection.selected_tile = selected_tile;
+        overlay_selection.selected_prop = selected_prop;
     }
 }

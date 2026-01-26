@@ -8,10 +8,11 @@ pub mod camera;
 mod coords;
 mod cursor;
 mod debug;
-pub mod grid;
 pub mod input;
+mod overlays;
 mod props;
 pub mod service;
+mod spatial_overlays;
 
 pub use camera::{
     update_viewport_camera, CameraTuning, ViewportCameraController, ViewportCameraMode,
@@ -21,16 +22,26 @@ pub use cursor::{
     update_world_cursor, SnapKind, ViewportRegionBounds, ViewportRegionContext, WorldCursor,
 };
 pub use debug::{draw_viewport_ray_hit_marker, ViewportDebugSettings};
-pub use grid::draw_ground_grid;
 pub use input::{
     log_viewport_capture_changes, update_viewport_input, ViewportCaptureChanged,
     ViewportCaptureRequest, ViewportCaptureSource, ViewportInputState, ViewportUiInput,
+};
+pub use overlays::{
+    apply_present_mode_from_overlay, subgrid_spacing_meters, OverlayPresentMode,
+    TileStreamingStatus, TileStreamingVisual, ViewportOverlayMaster, ViewportOverlayScope,
+    ViewportOverlaySettings, ViewportOverlayStats, ViewportSelectionState,
+    ViewportTileStreamingState, SUBGRID_SPACING_LEVELS,
 };
 pub use props::{
     draw_debug_prop_gizmo, sync_debug_prop_visibility, update_prop_hover, DebugPropMarker,
     PropBounds, PropHoverState, PropPickable,
 };
 pub use service::{ViewportBackend, ViewportRect, ViewportService};
+pub use spatial_overlays::{
+    draw_chunk_grid_overlay, draw_hover_highlight_overlay, draw_region_bounds_overlay,
+    draw_selection_highlight_overlay, draw_streaming_overlay, draw_subgrid_overlay,
+    draw_tile_grid_overlay, update_overlay_scope,
+};
 
 #[derive(Component)]
 pub struct EditorViewportCamera;
@@ -52,6 +63,12 @@ impl Plugin for ViewportPlugin {
             .init_resource::<WorldCursor>()
             .init_resource::<PropHoverState>()
             .init_resource::<ViewportDebugSettings>()
+            .init_resource::<ViewportOverlayMaster>()
+            .init_resource::<ViewportOverlaySettings>()
+            .init_resource::<ViewportOverlayStats>()
+            .init_resource::<ViewportOverlayScope>()
+            .init_resource::<ViewportSelectionState>()
+            .init_resource::<ViewportTileStreamingState>()
             .add_message::<ViewportCaptureRequest>()
             .add_message::<ViewportCaptureChanged>()
             .add_message::<ViewportFocusRequest>()
@@ -65,10 +82,18 @@ impl Plugin for ViewportPlugin {
                     log_viewport_capture_changes.after(update_viewport_input),
                     update_viewport_camera.after(update_viewport_input),
                     update_world_cursor.after(update_viewport_camera),
+                    apply_present_mode_from_overlay.after(update_world_cursor),
+                    update_overlay_scope.after(update_world_cursor),
                     sync_debug_prop_visibility.after(update_world_cursor),
                     update_prop_hover.after(update_world_cursor),
-                    draw_ground_grid.after(update_prop_hover),
-                    draw_debug_prop_gizmo.after(draw_ground_grid),
+                    draw_tile_grid_overlay.after(update_overlay_scope),
+                    draw_chunk_grid_overlay.after(draw_tile_grid_overlay),
+                    draw_subgrid_overlay.after(draw_chunk_grid_overlay),
+                    draw_region_bounds_overlay.after(draw_subgrid_overlay),
+                    draw_hover_highlight_overlay.after(draw_region_bounds_overlay),
+                    draw_selection_highlight_overlay.after(draw_hover_highlight_overlay),
+                    draw_streaming_overlay.after(draw_selection_highlight_overlay),
+                    draw_debug_prop_gizmo.after(draw_streaming_overlay),
                     draw_viewport_ray_hit_marker.after(draw_debug_prop_gizmo),
                 ),
             );

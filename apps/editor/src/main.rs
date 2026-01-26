@@ -1,3 +1,4 @@
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use editor_core::log_capture::log_capture_layer;
@@ -11,6 +12,7 @@ fn main() {
             custom_layer: log_capture_layer,
             ..Default::default()
         }))
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(EditorCorePlugin)
         .add_plugins(EditorUiPlugin)
         .add_plugins(ViewportPlugin)

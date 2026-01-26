@@ -6,6 +6,7 @@ use viewport::update_prop_hover;
 
 pub mod panels;
 pub mod selection;
+pub mod viewport_overlays;
 
 pub struct EditorUiPlugin;
 
@@ -22,11 +23,26 @@ impl Plugin for EditorUiPlugin {
         .init_resource::<panels::LogPanelState>()
         .init_resource::<panels::GoToTileState>()
         .init_resource::<selection::SelectionInputState>()
+        .init_resource::<panels::viewport_overlay_options::ViewportOverlayPanelState>()
+        .init_resource::<panels::viewport_overlay_hud::ViewportOverlayHudState>()
+        .init_resource::<viewport_overlays::ViewportOverlaySyncState>()
         .add_systems(Startup, setup_ui_camera)
         .add_systems(EguiPrimaryContextPass, panels::draw_root_panel)
         .add_systems(
             PostUpdate,
-            selection::update_viewport_selection.after(update_prop_hover),
+            (
+                panels::sync_viewport_ui_input.before(viewport::update_viewport_input),
+                viewport_overlays::handle_overlay_hotkeys.after(viewport::update_viewport_input),
+                viewport_overlays::sync_overlay_master_state
+                    .after(viewport_overlays::handle_overlay_hotkeys)
+                    .before(viewport::update_overlay_scope),
+                viewport_overlays::sync_overlay_settings
+                    .after(viewport_overlays::handle_overlay_hotkeys)
+                    .before(viewport::update_world_cursor),
+                selection::update_viewport_selection.after(update_prop_hover),
+                selection::sync_viewport_selection_overlay
+                    .after(selection::update_viewport_selection),
+            ),
         );
     }
 }

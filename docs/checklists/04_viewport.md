@@ -111,7 +111,7 @@ Notes
 - [x] Leaving/entering the viewport (hover changes) does not produce spurious rays or stale hits.
 
 Notes
-- The dev ground grid spacing scales with `tile_size_meters` after saving world settings; it is not the tile/chunk overlay (04.5).
+- The tile grid overlay (04.5) represents region scope; the old dev ground grid has been removed.
 
 ---
 
@@ -158,97 +158,110 @@ Notes
 ### Requirements
 
 #### 04.5.0 Overlay framework + toggles
-- [ ] Overlay toggles (panel/menu) for:
-  - [ ] cursor readout
-  - [ ] tile grid
-  - [ ] chunk grid
-  - [ ] sub-grid
-  - [ ] region bounds
-  - [ ] hover highlight
-  - [ ] selection highlight
-  - [ ] debug markers (ray hit, viewport rect)
-  - [ ] streaming visualization hooks (loaded/pending/dirty/pinned/error)
-- [ ] Hotkeys:
-  - [ ] master overlays on/off
-  - [ ] cycle snap level (coarse↔fine)
-  - [ ] cycle sub-grid spacing
-- [ ] Persist overlay settings in editor prefs.
+- [x] Overlay toggles (panel/menu) for:
+  - [x] cursor readout
+  - [x] fps readout
+  - [x] present mode selector (vsync/auto no vsync/immediate)
+  - [x] tile grid
+  - [x] chunk grid
+  - [x] sub-grid
+  - [x] region bounds
+  - [x] hover highlight
+  - [x] selection highlight
+  - [x] debug markers (ray hit, viewport rect)
+  - [x] streaming visualization hooks (loaded/pending/dirty/pinned/error)
+- [x] Hotkeys:
+  - [x] master overlays on/off
+  - [x] cycle snap level (coarse-fine)
+  - [x] cycle sub-grid spacing
+- [x] Persist overlay settings in editor prefs.
+
+Notes
+- Overlay Options opens a standalone window so combo boxes (present mode, sub-grid spacing) work without closing the menu.
 
 #### 04.5.1 Cursor readout
-- [ ] Only show when:
-  - [ ] mouse is inside viewport AND
-  - [ ] `WorldCursor.has_hit` is true
-- [ ] Readout includes:
-  - [ ] world pos
-  - [ ] region id/name
-  - [ ] tile coords
-  - [ ] chunk coords (when available)
-  - [ ] active tool
-  - [ ] snap mode + spacing
+- [x] Only show when:
+  - [x] mouse is inside viewport AND
+  - [x] `WorldCursor.has_hit` is true
+- [x] Readout includes:
+  - [x] world pos
+  - [x] region id/name
+  - [x] tile coords
+  - [x] chunk coords (when available)
+  - [x] active tool
+  - [x] snap mode + spacing
 
 #### 04.5.2 Tile grid overlay
-- [ ] Render scope is local (never full region). Choose and document exactly one:
-  - [ ] within radius around cursor, OR
-  - [ ] within radius around camera
-- [ ] Highlight hovered tile.
-- [ ] Alignment exactly matches tile coordinate system.
+- [x] Render scope shows the full region bounds (fixed grid).
+- [x] Highlight hovered tile.
+- [x] Alignment exactly matches tile coordinate system.
 
 #### 04.5.3 Chunk grid overlay
-- [ ] Same scoping rule as tile grid (local only).
-- [ ] Highlight hovered chunk when enabled.
+- [x] Same scoping rule as tile grid (local only).
+- [x] Highlight hovered chunk when enabled.
+
+Notes
+- Chunk grid uses a fixed 4x4 tile window centered on the camera tile.
 
 #### 04.5.4 Sub-grid overlay
-- [ ] Spacing levels: 32, 16, 8, 4, 2, 1 (default 8).
-- [ ] Anchor to a stable origin. Choose and document exactly one:
+- [x] Spacing levels: 32, 16, 8, 4, 2, 1 (default 8).
+- [x] Anchor to a stable origin. Choose and document exactly one:
   - [ ] world origin, OR
-  - [ ] region origin
-- [ ] Render scope is local (use the same scoping rule as tile/chunk).
-- [ ] LOD rules:
-  - [ ] far: hidden
-  - [ ] mid: chunk only
-  - [ ] near: chunk + sub-grid
-  - [ ] very near: allow 1m
+  - [x] region origin
+- [x] Render scope is local (use the same scoping rule as tile/chunk).
+- [x] LOD rules:
+  - [x] far: hidden
+  - [x] mid: chunk only
+  - [x] near: chunk + sub-grid
+  - [x] very near: allow 1m
+
+Notes
+- Sub-grid uses the same fixed 4x4 tile window as chunk grid, anchored to region origin for alignment.
 
 #### 04.5.5 Region bounds overlay + enforcement
-- [ ] Render region bounds.
-- [ ] Warn near edge/outside.
-- [ ] Enforce: tools cannot author outside bounds (block with clear message).
+- [x] Render region bounds.
+- [x] Warn near edge/outside.
+- [x] Enforce: tools cannot author outside bounds (block with clear message).
 
 #### 04.5.6 Hover + selection visualization
-- [ ] Hover highlight:
-  - [ ] tile
-  - [ ] chunk (when enabled)
-- [ ] Selection highlight:
-  - [ ] selected tile v1
-  - [ ] reserved path for entities later
-- [ ] Clear selection affordance:
-  - [ ] Esc clears selection
-  - [ ] click empty clears selection
+- [x] Hover highlight:
+  - [x] tile
+  - [x] chunk (when enabled)
+- [x] Selection highlight:
+  - [x] selected tile v1
+  - [x] reserved path for entities later
+- [x] Clear selection affordance:
+  - [x] Esc clears selection
+  - [x] click empty clears selection
 
 #### 04.5.7 Streaming visualization hooks
-- [ ] Tile state model (fed by streaming later):
-  - [ ] loaded
-  - [ ] pending_load
-  - [ ] dirty
-  - [ ] pinned
-  - [ ] error / quarantined
-- [ ] Visualization conventions:
-  - [ ] define precedence rules (e.g., error overrides dirty)
-  - [ ] outline vs fill rules
-- [ ] Provide an API surface for the streaming system to feed these states later.
+- [x] Tile state model (fed by streaming later):
+  - [x] loaded
+  - [x] pending_load
+  - [x] dirty
+  - [x] pinned
+  - [x] error / quarantined
+- [x] Visualization conventions:
+  - [x] define precedence rules (e.g., error overrides dirty)
+  - [x] outline vs fill rules
+- [x] Provide an API surface for the streaming system to feed these states later.
+
+Notes
+- Streaming overlays use tile outlines; error tiles add a diagonal cross.
+- Grid overlays visualize tile/chunk/sub-grid extents only; they do not imply geometry is loaded or rendered.
 
 #### 04.5.8 Overlay performance gates
-- [ ] Overlays never iterate full region (e.g., never scan 255×255).
-- [ ] Debug counters:
-  - [ ] lines drawn
-  - [ ] tiles considered per frame
+- [ ] Overlays never iterate full region (e.g., never scan 255x255).
+- [x] Debug counters:
+  - [x] lines drawn
+  - [x] tiles considered per frame
 - [ ] Enabling overlays does not cause large frame drops.
 
 ### DoD
-- [ ] All overlays can be toggled independently and via a master toggle.
-- [ ] Overlay settings persist across restarts.
-- [ ] With overlays disabled, overlay systems do near-zero work (no large loops, no allocations).
-- [ ] With overlays enabled, scope limits are respected and counters confirm bounded work.
+- [x] All overlays can be toggled independently and via a master toggle.
+- [x] Overlay settings persist across restarts.
+- [x] With overlays disabled, overlay systems do near-zero work (no large loops, no allocations).
+- [x] With overlays enabled, scope limits are respected and counters confirm bounded work.
 
 ---
 

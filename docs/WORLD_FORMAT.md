@@ -86,3 +86,4 @@ See:
 
 ## Notes
 - Legacy per-layer `*.bin`/`*.json` stubs are deprecated in favor of `.tile`.
+- A world is a container for multiple regions (maps). Each region is a large tile grid; moving between regions implies a load/swap.

@@ -15,6 +15,7 @@ pub struct ProjectEditorState {
     pub dock_layout: Option<String>,
     pub last_world_id: Option<String>,
     pub autosave_enabled: bool,
+    pub viewport_overlays: ViewportOverlayPrefs,
 }
 
 impl Default for ProjectEditorState {
@@ -23,6 +24,46 @@ impl Default for ProjectEditorState {
             dock_layout: None,
             last_world_id: None,
             autosave_enabled: true,
+            viewport_overlays: ViewportOverlayPrefs::default(),
+        }
+    }
+}
+
+/// Persisted viewport overlay preferences stored per project.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ViewportOverlayPrefs {
+    pub show_cursor_readout: bool,
+    pub show_fps: bool,
+    pub present_mode: u8,
+    pub show_tile_grid: bool,
+    pub show_chunk_grid: bool,
+    pub show_subgrid: bool,
+    pub show_region_bounds: bool,
+    pub show_hover_highlight: bool,
+    pub show_selection_highlight: bool,
+    pub show_debug_markers: bool,
+    pub show_streaming: bool,
+    pub snap_mode: u8,
+    pub subgrid_spacing: u16,
+}
+
+impl Default for ViewportOverlayPrefs {
+    fn default() -> Self {
+        Self {
+            show_cursor_readout: true,
+            show_fps: true,
+            present_mode: 0,
+            show_tile_grid: true,
+            show_chunk_grid: false,
+            show_subgrid: false,
+            show_region_bounds: true,
+            show_hover_highlight: true,
+            show_selection_highlight: true,
+            show_debug_markers: true,
+            show_streaming: false,
+            snap_mode: 0,
+            subgrid_spacing: 8,
         }
     }
 }
