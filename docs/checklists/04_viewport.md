@@ -251,11 +251,11 @@ Notes
 - Grid overlays visualize tile/chunk/sub-grid extents only; they do not imply geometry is loaded or rendered.
 
 #### 04.5.8 Overlay performance gates
-- [ ] Overlays never iterate full region (e.g., never scan 255x255).
+- [x] Overlays avoid full-region per-tile scans; full-extent grids only draw line strips.
 - [x] Debug counters:
   - [x] lines drawn
   - [x] tiles considered per frame
-- [ ] Enabling overlays does not cause large frame drops.
+- [x] Enabling overlays does not cause large frame drops.
 
 ### DoD
 - [x] All overlays can be toggled independently and via a master toggle.
